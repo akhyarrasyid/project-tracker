@@ -1,7 +1,12 @@
 import type { Task, TaskStatus, TaskUpdate } from "../types/task";
 import { TaskCard } from "./TaskCard";
 
-const COLUMN_STYLES: Record<TaskStatus, { header: string; dot: string; count: string }> = {
+// ── Column style map — all 5 statuses ────────────────────────────────────────
+
+const COLUMN_STYLES: Record<
+  TaskStatus,
+  { header: string; dot: string; count: string }
+> = {
   Todo: {
     header: "text-slate-600",
     dot: "bg-slate-400",
@@ -11,6 +16,16 @@ const COLUMN_STYLES: Record<TaskStatus, { header: string; dot: string; count: st
     header: "text-blue-600",
     dot: "bg-blue-500",
     count: "bg-blue-50 text-blue-600",
+  },
+  Review: {
+    header: "text-purple-600",
+    dot: "bg-purple-500",
+    count: "bg-purple-50 text-purple-600",
+  },
+  Blocked: {
+    header: "text-red-600",
+    dot: "bg-red-500",
+    count: "bg-red-50 text-red-600",
   },
   Done: {
     header: "text-emerald-600",
@@ -22,8 +37,8 @@ const COLUMN_STYLES: Record<TaskStatus, { header: string; dot: string; count: st
 interface Props {
   status: TaskStatus;
   tasks: Task[];
-  onUpdate: (id: number, data: TaskUpdate) => Promise<any>;
-  onDelete: (id: number) => Promise<any>;
+  onUpdate: (id: number, data: TaskUpdate) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
   extra?: React.ReactNode;
 }
 
@@ -35,13 +50,17 @@ export function KanbanColumn({ status, tasks, onUpdate, onDelete, extra }: Props
       {/* Column header */}
       <div className="flex items-center gap-2 px-1">
         <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-        <h2 className={`text-sm font-bold uppercase tracking-wider ${style.header}`}>{status}</h2>
-        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${style.count}`}>
+        <h2 className={`text-sm font-bold uppercase tracking-wider ${style.header}`}>
+          {status}
+        </h2>
+        <span
+          className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${style.count}`}
+        >
           {tasks.length}
         </span>
       </div>
 
-      {/* Cards */}
+      {/* Task cards */}
       {tasks.map((task) => (
         <TaskCard key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />
       ))}
