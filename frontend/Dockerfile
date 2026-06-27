@@ -2,8 +2,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
-COPY . .
+RUN npm ci --ignore-scripts
+COPY src/ ./src/
+COPY public/ ./public/
+COPY index.html tsconfig*.json vite.config.ts postcss.config.js tailwind.config.js ./
 RUN npm run build
 
 FROM nginx:alpine
