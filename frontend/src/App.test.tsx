@@ -137,4 +137,172 @@ describe("TaskBoard Frontend Application", () => {
       expect(screen.queryByText("Task Satu")).not.toBeInTheDocument();
     });
   });
+
+  it("should handle editing a task and saving it", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+    vi.mocked(taskApi.update).mockResolvedValue({
+      id: 1,
+      title: "Task Satu Baru",
+      description: "Deskripsi satu baru",
+      status: "Todo" as const,
+      created_at: "2026-06-26T15:00:00Z",
+      updated_at: "2026-06-26T15:00:00Z",
+    });
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Click Edit button
+    const editBtn = screen.getAllByTitle("Edit")[0];
+    fireEvent.click(editBtn);
+
+    // Edit inputs are now visible
+    const titleInput = screen.getByPlaceholderText("Judul task...");
+    const descInput = screen.getByPlaceholderText("Deskripsi (opsional)...");
+    
+    fireEvent.change(titleInput, { target: { value: "Task Satu Baru" } });
+    fireEvent.change(descInput, { target: { value: "Deskripsi satu baru" } });
+
+    // Click Save
+    const saveBtn = screen.getByText("Simpan");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(taskApi.update).toHaveBeenCalledWith(1, {
+        title: "Task Satu Baru",
+        description: "Deskripsi satu baru",
+      });
+      expect(screen.getByText("Task Satu Baru")).toBeInTheDocument();
+      expect(screen.getByText("Deskripsi satu baru")).toBeInTheDocument();
+    });
+  });
+
+  it("should handle editing a task and canceling it", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Click Edit
+    const editBtn = screen.getAllByTitle("Edit")[0];
+    fireEvent.click(editBtn);
+
+    // Click Batal
+    const cancelBtn = screen.getByText("Batal");
+    fireEvent.click(cancelBtn);
+
+    expect(screen.getByText("Task Satu")).toBeInTheDocument();
+  });
+
+  it("should handle changing task status via select dropdown", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+    vi.mocked(taskApi.update).mockResolvedValue({
+      id: 1,
+      title: "Task Satu",
+      description: "Deskripsi satu",
+      status: "Done" as const,
+      created_at: "2026-06-26T15:00:00Z",
+      updated_at: "2026-06-26T15:00:00Z",
+    });
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Find select element for Task Satu status (default Todo)
+    const select = screen.getAllByRole("combobox")[0];
+    fireEvent.change(select, { target: { value: "Done" } });
+
+    await waitFor(() => {
+      expect(taskApi.update).toHaveBeenCalledWith(1, { status: "Done" });
+    });
+  });
+
+  it("should validate empty title when creating a task", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Open form
+    const addBtn = screen.getByText("+ Tambah Task Baru");
+    fireEvent.click(addBtn);
+
+    // Leave title empty and click Buat Task
+    const submitBtn = screen.getByText("Buat Task");
+    fireEvent.click(submitBtn);
+
+    // Expect validation message
+    expect(screen.getByText("Judul tidak boleh kosong.")).toBeInTheDocument();
+  });
+
+  it("should handle task creation failure", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+    vi.mocked(taskApi.create).mockRejectedValueOnce(new Error("Server error"));
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Open form
+    const addBtn = screen.getByText("+ Tambah Task Baru");
+    fireEvent.click(addBtn);
+
+    // Fill form
+    const titleInput = screen.getByPlaceholderText("Judul task...");
+    fireEvent.change(titleInput, { target: { value: "Task Gagal" } });
+
+    // Submit
+    const submitBtn = screen.getByText("Buat Task");
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
+    });
+  });
+
+  it("should handle canceling task creation", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Open form
+    const addBtn = screen.getByText("+ Tambah Task Baru");
+    fireEvent.click(addBtn);
+
+    // Cancel form
+    const cancelBtn = screen.getByText("Batal");
+    fireEvent.click(cancelBtn);
+
+    expect(screen.getByText("+ Tambah Task Baru")).toBeInTheDocument();
+  });
+
+  it("should submit form on Enter key down", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(mockTasks);
+    vi.mocked(taskApi.create).mockResolvedValue({
+      id: 4,
+      title: "Task Enter",
+      description: "",
+      status: "Todo" as const,
+      created_at: "2026-06-26T15:00:00Z",
+      updated_at: "2026-06-26T15:00:00Z",
+    });
+
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Open form
+    const addBtn = screen.getByText("+ Tambah Task Baru");
+    fireEvent.click(addBtn);
+
+    // Fill title and press Enter
+    const titleInput = screen.getByPlaceholderText("Judul task...");
+    fireEvent.change(titleInput, { target: { value: "Task Enter" } });
+    fireEvent.keyDown(titleInput, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(taskApi.create).toHaveBeenCalled();
+    });
+  });
 });
+
+
