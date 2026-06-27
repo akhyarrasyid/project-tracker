@@ -200,3 +200,20 @@ class TestTaskUpdatePartial:
     def test_update_valid_story_points(self):
         u = TaskUpdate(story_points=5)
         assert u.story_points == 5
+
+    def test_update_invalid_sla_hours(self):
+        with pytest.raises(ValidationError):
+            TaskUpdate(sla_hours=10)
+
+    def test_update_valid_sla_hours(self):
+        u = TaskUpdate(sla_hours=24)
+        assert u.sla_hours == 24
+
+    def test_update_five_tags_raises(self):
+        with pytest.raises(ValidationError):
+            TaskUpdate(tags=["a", "b", "c", "d", "e"])
+
+    def test_update_four_tags_ok(self):
+        u = TaskUpdate(tags=["a", "b", "c", "d"])
+        assert len(u.tags) == 4
+

@@ -91,7 +91,7 @@ class TaskCreate(BaseModel):
     sla_hours: int = Field(default=48)
     completed_at: Optional[datetime.datetime] = None
     dependencies: List[int] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list, max_length=4)
+    tags: List[str] = Field(default_factory=list)
 
     @field_validator("title", mode="before")
     @classmethod

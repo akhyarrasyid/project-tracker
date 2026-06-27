@@ -177,6 +177,35 @@ class TestRepositoryListFiltering:
         items, total = TaskRepository.list(db_session, status="Todo,Done")
         assert total == 2
 
+    def test_filter_by_team(self, db_session):
+        create(db_session, team="Frontend")
+        create(db_session, team="Backend")
+        items, _ = TaskRepository.list(db_session, team="Frontend")
+        assert len(items) == 1
+        assert items[0].team == "Frontend"
+
+    def test_filter_by_sprint(self, db_session):
+        create(db_session, sprint="Sprint-1")
+        create(db_session, sprint="Sprint-2")
+        items, _ = TaskRepository.list(db_session, sprint="Sprint-1")
+        assert len(items) == 1
+        assert items[0].sprint == "Sprint-1"
+
+    def test_filter_by_quarter(self, db_session):
+        create(db_session, quarter="Q1")
+        create(db_session, quarter="Q2")
+        items, _ = TaskRepository.list(db_session, quarter="Q1")
+        assert len(items) == 1
+        assert items[0].quarter == "Q1"
+
+    def test_filter_by_risk_level(self, db_session):
+        create(db_session, risk_level="High")
+        create(db_session, risk_level="Low")
+        items, _ = TaskRepository.list(db_session, risk_level="High")
+        assert len(items) == 1
+        assert items[0].risk_level == "High"
+
+
 
 class TestRepositoryListSearch:
     def test_search_by_title(self, db_session):
@@ -212,3 +241,15 @@ class TestRepositoryListSorting:
         items, _ = TaskRepository.list(db_session, sort_by="id", sort_order="desc")
         ids = [t.id for t in items]
         assert ids == sorted(ids, reverse=True)
+
+
+class TestRepositoryBulk:
+    def test_bulk_create(self, db_session):
+        data = [
+            {**BASE, "title": "Bulk 1"},
+            {**BASE, "title": "Bulk 2"},
+        ]
+        count = TaskRepository.bulk_create(db_session, data)
+        assert count == 2
+        assert db_session.query(Task).filter(Task.title.like("Bulk %")).count() == 2
+
