@@ -44,7 +44,10 @@ def _validate_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for i, record in enumerate(records):
         try:
             validated = TaskCreate(**record)
-            valid.append(validated.model_dump())
+            dump = validated.model_dump()
+            if "id" in record:
+                dump["id"] = record["id"]
+            valid.append(dump)
         except ValidationError as exc:
             errors.append({"index": i, "id": record.get("id"), "errors": exc.errors()})
 
