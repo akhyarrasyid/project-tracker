@@ -202,7 +202,7 @@ class TaskResponse(BaseModel):
     created_at: datetime.datetime
     updated_at: datetime.datetime
     due_date: datetime.date
-    completed_at: Optional[datetime.datetime]
+    completed_at: Optional[datetime.datetime] = None
     story_points: int
     estimated_hours: int
     actual_hours: int

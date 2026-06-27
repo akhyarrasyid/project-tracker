@@ -106,9 +106,9 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
         db.bulk_save_objects(tasks)
         db.commit()
         log.info(f"✓ Seeding complete — {len(tasks)} records inserted.")
-    except Exception as exc:
+    except Exception:
         db.rollback()
-        log.error(f"Seed failed, transaction rolled back: {exc}")
+        log.exception("Seed failed, transaction rolled back.")
         sys.exit(1)
     finally:
         db.close()
@@ -123,9 +123,9 @@ def cmd_reset(records: List[Dict[str, Any]]) -> None:
         deleted = db.query(Task).delete()
         db.commit()
         log.info(f"Deleted {deleted} existing records.")
-    except Exception as exc:
+    except Exception:
         db.rollback()
-        log.error(f"Reset failed: {exc}")
+        log.exception("Reset failed.")
         db.close()
         sys.exit(1)
     finally:

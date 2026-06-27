@@ -46,8 +46,7 @@ class TaskRepository:
         quarter: Optional[str] = None,
         risk_level: Optional[str] = None,
         search: Optional[str] = None,
-        sort_by: str = "created_at",
-        sort_order: str = "desc",
+        **kwargs,
     ) -> Tuple[List[Task], int]:
         """Return (items, total) with optional filtering, search and pagination."""
         q = db.query(Task)
@@ -85,6 +84,8 @@ class TaskRepository:
         total: int = q.count()
 
         # ── Sort ──────────────────────────────────────────────────────────────
+        sort_by = kwargs.get("sort_by", "created_at")
+        sort_order = kwargs.get("sort_order", "desc")
         sort_col = _SORTABLE_COLUMNS.get(sort_by, Task.created_at)
         if sort_order == "asc":
             q = q.order_by(sort_col.asc())
