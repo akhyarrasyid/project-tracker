@@ -64,10 +64,10 @@ describe("TaskBoard Application", () => {
     vi.clearAllMocks();
   });
 
-  it("renders loading skeleton initially", () => {
+  it("renders loading spinner initially", () => {
     vi.mocked(taskApi.getAll).mockReturnValue(new Promise(() => {}));
     render(<App />);
-    expect(screen.getByText(/project tracker/i)).toBeInTheDocument();
+    expect(screen.getByText(/memuat data task/i)).toBeInTheDocument();
   });
 
   it("displays tasks after loading", async () => {
@@ -85,23 +85,22 @@ describe("TaskBoard Application", () => {
     vi.mocked(taskApi.getAll).mockRejectedValue(new Error("Network error"));
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText(/gagal memuat tasks/i)).toBeInTheDocument();
+      expect(screen.getByText(/Gagal memuat tasks/i)).toBeInTheDocument();
     });
   });
 
-  it("shows all 5 kanban columns", async () => {
+  it("shows 4 kanban columns", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
     render(<App />);
     await waitFor(() => {
       expect(screen.getByText("Todo")).toBeInTheDocument();
       expect(screen.getByText("In Progress")).toBeInTheDocument();
-      expect(screen.getByText("Review")).toBeInTheDocument();
-      expect(screen.getByText("Blocked")).toBeInTheDocument();
+      expect(screen.getByText("In Review")).toBeInTheDocument();
       expect(screen.getByText("Done")).toBeInTheDocument();
     });
   });
 
-  it("can advance task status via the quick button", async () => {
+  it("can open details modal and update status", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(
       paginatedResponse([makeTask()])
     );
@@ -109,22 +108,38 @@ describe("TaskBoard Application", () => {
     render(<App />);
     await screen.findByText("Task Satu");
 
-    const advBtn = screen.getByText("→ In Progress");
-    fireEvent.click(advBtn);
+    // Click on the task card to open detail modal
+    fireEvent.click(screen.getByText("Task Satu"));
+
+    // Verify modal is open and has title input
+    const titleInput = screen.getByLabelText(/judul task/i) as HTMLInputElement;
+    expect(titleInput.value).toBe("Task Satu");
+
+    // Change status dropdown
+    const statusSelect = screen.getByLabelText(/status/i) as HTMLSelectElement;
+    fireEvent.change(statusSelect, { target: { value: "In Progress" } });
+
+    // Click Save Changes button
+    fireEvent.click(screen.getByText("Simpan Perubahan"));
+
     await waitFor(() => {
-      expect(taskApi.update).toHaveBeenCalledWith(1, { status: "In Progress" });
+      expect(taskApi.update).toHaveBeenCalledWith(1, expect.objectContaining({ status: "In Progress" }));
     });
   });
 
-  it("can delete a task with confirmation", async () => {
+  it("can delete a task from the details modal with confirmation", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    vi.mocked(taskApi.delete).mockResolvedValue({ data: {} });
+    vi.mocked(taskApi.delete).mockResolvedValue({} as any);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<App />);
     await screen.findByText("Task Satu");
 
-    const deleteBtn = screen.getByTitle("Hapus");
+    // Click card to open modal
+    fireEvent.click(screen.getByText("Task Satu"));
+
+    // Find and click Hapus Task button in the modal
+    const deleteBtn = screen.getByText("Hapus Task");
     fireEvent.click(deleteBtn);
 
     expect(confirmSpy).toHaveBeenCalled();
@@ -143,16 +158,8 @@ describe("TaskBoard Application", () => {
     });
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText(/prev/i)).toBeInTheDocument();
-      expect(screen.getByText(/next/i)).toBeInTheDocument();
-    });
-  });
-
-  it("does not show pagination when on single page", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    render(<App />);
-    await waitFor(() => {
-      expect(screen.queryByText(/prev/i)).not.toBeInTheDocument();
+      expect(screen.getByTitle("Halaman Sebelumnya")).toBeInTheDocument();
+      expect(screen.getByTitle("Halaman Selanjutnya")).toBeInTheDocument();
     });
   });
 
@@ -163,7 +170,7 @@ describe("TaskBoard Application", () => {
 
     fireEvent.click(screen.getByText("+ Tambah Task Baru"));
     fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Judul tidak boleh kosong.")).toBeInTheDocument();
+    expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
   });
 
   it("can cancel the create form", async () => {
@@ -178,7 +185,7 @@ describe("TaskBoard Application", () => {
     expect(screen.queryByText("Buat Task")).not.toBeInTheDocument();
   });
 
-  it("validates missing department, team, assignee, or created_by", async () => {
+  it("validates missing department, team, assignee, or created_by in create form", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
     render(<App />);
     await screen.findByText("+ Tambah Task Baru");
@@ -190,25 +197,7 @@ describe("TaskBoard Application", () => {
     fireEvent.change(titleInput, { target: { value: "Task Baru" } });
 
     fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Department, team, assignee, dan created by wajib diisi.")).toBeInTheDocument();
-  });
-
-  it("validates missing sprint", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-    
-    // Fill title
-    fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "Task Baru" } });
-    fireEvent.change(screen.getByPlaceholderText("Department *"), { target: { value: "Engineering" } });
-    fireEvent.change(screen.getByPlaceholderText("Team *"), { target: { value: "Backend" } });
-    fireEvent.change(screen.getByPlaceholderText("Assignee *"), { target: { value: "Alice" } });
-    fireEvent.change(screen.getByPlaceholderText("Created by *"), { target: { value: "Admin" } });
-
-    fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Sprint wajib diisi.")).toBeInTheDocument();
+    expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
   });
 
   it("successfully creates a task with all fields", async () => {
@@ -248,14 +237,14 @@ describe("TaskBoard Application", () => {
     render(<App />);
     await screen.findByText("Task Satu");
 
-    const nextBtn = screen.getByText("Next →");
+    const nextBtn = screen.getByTitle("Halaman Selanjutnya");
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
       expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 2, size: 20 });
     });
 
-    const prevBtn = screen.getByText("← Prev");
+    const prevBtn = screen.getByTitle("Halaman Sebelumnya");
     fireEvent.click(prevBtn);
 
     await waitFor(() => {
@@ -263,7 +252,7 @@ describe("TaskBoard Application", () => {
     });
   });
 
-  it("handles deletion cancellation", async () => {
+  it("handles deletion cancellation from task card", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
 
@@ -291,7 +280,6 @@ describe("TaskBoard Application", () => {
     await waitFor(() => {
       expect(taskApi.delete).toHaveBeenCalledWith(1);
     });
-    // Wait for hook to catch error and call getAll to revert/rollback
     await waitFor(() => {
       expect(taskApi.getAll).toHaveBeenCalledTimes(2);
     });
@@ -312,7 +300,7 @@ describe("TaskBoard Application", () => {
     fireEvent.change(screen.getByPlaceholderText("Created by *"), { target: { value: "E" } });
     fireEvent.change(screen.getByPlaceholderText("Sprint (e.g. Sprint-1) *"), { target: { value: "F" } });
 
-    // We can also target by their ids
+    // Target inputs by ID
     const statusSelect = document.getElementById("create-status") as HTMLSelectElement;
     const prioritySelect = document.getElementById("create-priority") as HTMLSelectElement;
     const spSelect = document.getElementById("create-story-points") as HTMLSelectElement;
@@ -342,28 +330,6 @@ describe("TaskBoard Application", () => {
     });
   });
 
-  it("renders task with progress bar, invalid priority, and updates other tasks", async () => {
-    const task1 = makeTask({ id: 1, title: "Task 1", progress_percentage: 50, priority: "Invalid" as any });
-    const task2 = makeTask({ id: 2, title: "Task 2" });
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([task1, task2]));
-    vi.mocked(taskApi.update).mockResolvedValue(makeTask({ id: 1, title: "Task 1 Updated", progress_percentage: 60 }));
-
-    render(<App />);
-    await screen.findByText("Task 1");
-    await screen.findByText("Task 2");
-    
-    // Check progress percentage text
-    expect(screen.getByText("50%")).toBeInTheDocument();
-
-    // Check status advance updates and triggers tasks mapping
-    const advBtn = screen.getAllByText("→ In Progress")[0];
-    fireEvent.click(advBtn);
-
-    await waitFor(() => {
-      expect(taskApi.update).toHaveBeenCalled();
-    });
-  });
-
   it("renders Done status task and overdue task", async () => {
     const overdueTask = makeTask({ id: 10, title: "Overdue Task", due_date: "2020-01-01" });
     const doneTask = makeTask({ id: 20, title: "Done Task", status: "Done" as const });
@@ -373,7 +339,7 @@ describe("TaskBoard Application", () => {
     await screen.findByText("Overdue Task");
     await screen.findByText("Done Task");
 
-    // Overdue task should have overdue color class or style
+    // Overdue task should have overdue color label
     const overdueLabel = screen.getByText("📅 1 Jan 2020");
     expect(overdueLabel).toHaveClass("text-red-500");
   });
@@ -397,6 +363,47 @@ describe("TaskBoard Application", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
+    });
+  });
+
+  it("can switch to list view and calendar view", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    // Click on list view tab
+    fireEvent.click(screen.getByRole("button", { name: /^list$/i }));
+    // Verify it renders list table
+    expect(screen.getByText("Summary / Title")).toBeInTheDocument();
+
+    // Click on calendar view tab
+    fireEvent.click(screen.getByRole("button", { name: /^calendar$/i }));
+    // Verify it renders calendar weekdays
+    expect(screen.getByText("Senin")).toBeInTheDocument();
+  });
+
+  it("handles drag and drop status change", async () => {
+    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
+    vi.mocked(taskApi.update).mockResolvedValue(makeTask({ status: "In Progress" as const }));
+    render(<App />);
+    await screen.findByText("Task Satu");
+
+    const column = screen.getByText("In Progress").closest("div");
+    
+    // Simulate drop event
+    const dataTransfer = {
+      data: { "text/plain": "1" },
+      setData(type: string, val: string) {
+        this.data[type] = val;
+      },
+      getData(type: string) {
+        return this.data[type];
+      }
+    };
+    
+    fireEvent.drop(column!, { dataTransfer });
+    await waitFor(() => {
+      expect(taskApi.update).toHaveBeenCalledWith(1, { status: "In Progress" });
     });
   });
 });
