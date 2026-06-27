@@ -2,8 +2,8 @@ import { useState } from "react";
 import type { Task } from "../types/task";
 
 interface Props {
-  tasks: Task[];
-  onTaskClick: (task: Task) => void;
+  readonly tasks: readonly Task[];
+  readonly onTaskClick: (task: Task) => void;
 }
 
 export function TaskCalendar({ tasks, onTaskClick }: Props) {
@@ -161,7 +161,15 @@ export function TaskCalendar({ tasks, onTaskClick }: Props) {
                 {dateTasks.map((t) => (
                   <div
                     key={t.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onTaskClick(t)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onTaskClick(t);
+                      }
+                    }}
                     className={`text-[10px] font-semibold border px-1.5 py-1 rounded cursor-pointer transition-colors truncate ${getPriorityColor(
                       t.priority
                     )}`}

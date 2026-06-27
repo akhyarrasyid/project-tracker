@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { Task, TaskStatus, TaskPriority, Quarter, RiskLevel, CustomerImpact } from "../types/task";
 
 interface Props {
-  task: Task;
-  onUpdate: (id: number, data: any) => Promise<any>;
-  onDelete: (id: number) => Promise<void>;
-  onClose: () => void;
+  readonly task: Task;
+  readonly onUpdate: (id: number, data: any) => Promise<any>;
+  readonly onDelete: (id: number) => Promise<void>;
+  readonly onClose: () => void;
 }
 
 const STATUSES: TaskStatus[] = ["Todo", "In Progress", "Review", "Blocked", "Done"];
@@ -94,6 +94,7 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
       await onUpdate(task.id, payload);
       onClose();
     } catch (err: any) {
+      console.error(err);
       setError("Gagal menyimpan perubahan. Coba lagi.");
     } finally {
       setSaving(false);
@@ -106,7 +107,8 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
     try {
       await onDelete(task.id);
       onClose();
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Gagal menghapus task.");
       setSaving(false);
     }
@@ -129,13 +131,13 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             <button
               onClick={handleDelete}
               disabled={saving}
-              className="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+              className="text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               Hapus Task
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -160,8 +162,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Deskripsi</label>
+              <label htmlFor="detail-description" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Deskripsi</label>
               <textarea
+                id="detail-description"
                 rows={5}
                 value={form.description}
                 onChange={(e) => handleChange("description", e.target.value)}
@@ -172,8 +175,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+                <label htmlFor="detail-department" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
                 <input
+                  id="detail-department"
                   type="text"
                   value={form.department}
                   onChange={(e) => handleChange("department", e.target.value)}
@@ -181,8 +185,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team</label>
+                <label htmlFor="detail-team" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team</label>
                 <input
+                  id="detail-team"
                   type="text"
                   value={form.team}
                   onChange={(e) => handleChange("team", e.target.value)}
@@ -193,8 +198,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tags</label>
+                <label htmlFor="detail-tags" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tags</label>
                 <input
+                  id="detail-tags"
                   type="text"
                   value={form.tagsInput}
                   onChange={(e) => handleChange("tagsInput", e.target.value)}
@@ -203,8 +209,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint</label>
+                <label htmlFor="detail-sprint" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint</label>
                 <input
+                  id="detail-sprint"
                   type="text"
                   value={form.sprint}
                   onChange={(e) => handleChange("sprint", e.target.value)}
@@ -247,8 +254,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Priority</label>
+              <label htmlFor="detail-priority" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Priority</label>
               <select
+                id="detail-priority"
                 value={form.priority}
                 onChange={(e) => handleChange("priority", e.target.value as TaskPriority)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -260,8 +268,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee</label>
+              <label htmlFor="detail-assignee" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee</label>
               <input
+                id="detail-assignee"
                 type="text"
                 value={form.assignee}
                 onChange={(e) => handleChange("assignee", e.target.value)}
@@ -270,8 +279,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By</label>
+              <label htmlFor="detail-created-by" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By</label>
               <input
+                id="detail-created-by"
                 type="text"
                 value={form.created_by}
                 onChange={(e) => handleChange("created_by", e.target.value)}
@@ -281,8 +291,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Story Points</label>
+                <label htmlFor="detail-story-points" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Story Points</label>
                 <select
+                  id="detail-story-points"
                   value={form.story_points}
                   onChange={(e) => handleChange("story_points", Number(e.target.value))}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -293,8 +304,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Est. Hours</label>
+                <label htmlFor="detail-estimated-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Est. Hours</label>
                 <input
+                  id="detail-estimated-hours"
                   type="number"
                   value={form.estimated_hours}
                   onChange={(e) => handleChange("estimated_hours", Number(e.target.value))}
@@ -305,8 +317,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Actual Hours</label>
+                <label htmlFor="detail-actual-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Actual Hours</label>
                 <input
+                  id="detail-actual-hours"
                   type="number"
                   value={form.actual_hours}
                   onChange={(e) => handleChange("actual_hours", Number(e.target.value))}
@@ -314,8 +327,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
+                <label htmlFor="detail-sla-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
                 <select
+                  id="detail-sla-hours"
                   value={form.sla_hours}
                   onChange={(e) => handleChange("sla_hours", Number(e.target.value))}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -328,9 +342,10 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Progress Percentage</label>
+              <label htmlFor="detail-progress" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Progress Percentage</label>
               <div className="flex items-center gap-2">
                 <input
+                  id="detail-progress"
                   type="range"
                   min="0"
                   max="100"
@@ -344,8 +359,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Quarter</label>
+                <label htmlFor="detail-quarter" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Quarter</label>
                 <select
+                  id="detail-quarter"
                   value={form.quarter}
                   onChange={(e) => handleChange("quarter", e.target.value as Quarter)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -356,8 +372,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Risk Level</label>
+                <label htmlFor="detail-risk-level" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Risk Level</label>
                 <select
+                  id="detail-risk-level"
                   value={form.risk_level}
                   onChange={(e) => handleChange("risk_level", e.target.value as RiskLevel)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -370,8 +387,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Customer Impact</label>
+              <label htmlFor="detail-customer-impact" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Customer Impact</label>
               <select
+                id="detail-customer-impact"
                 value={form.customer_impact}
                 onChange={(e) => handleChange("customer_impact", e.target.value as CustomerImpact)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -383,8 +401,9 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Due Date</label>
+              <label htmlFor="detail-due-date" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Due Date</label>
               <input
+                id="detail-due-date"
                 type="date"
                 value={form.due_date}
                 onChange={(e) => handleChange("due_date", e.target.value)}
@@ -401,14 +420,14 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 px-4 py-2 rounded-lg transition-colors"
+              className="text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 px-4 py-2 rounded-lg transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
             >
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>

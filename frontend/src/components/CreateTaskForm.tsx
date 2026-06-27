@@ -11,7 +11,7 @@ const SLA_HOURS = [24, 48, 72, 120];
 const TODAY = new Date().toISOString().split("T")[0];
 
 interface Props {
-  onCreate: (data: TaskCreate) => Promise<unknown>;
+  readonly onCreate: (data: TaskCreate) => Promise<unknown>;
 }
 
 type FormState = Omit<TaskCreate, "tags"> & { tagsInput: string };
@@ -129,7 +129,7 @@ export function CreateTaskForm({ onCreate }: Props) {
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Title */}
           <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Judul Task *</label>
+            <label htmlFor="create-title" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Judul Task *</label>
             <input
               id="create-title"
               value={form.title}
@@ -143,7 +143,7 @@ export function CreateTaskForm({ onCreate }: Props) {
 
           {/* Description */}
           <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Deskripsi</label>
+            <label htmlFor="create-description" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Deskripsi</label>
             <textarea
               id="create-description"
               value={form.description}
@@ -157,7 +157,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Status + Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</label>
+              <label htmlFor="create-status" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</label>
               <select
                 id="create-status"
                 value={form.status}
@@ -168,7 +168,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Priority</label>
+              <label htmlFor="create-priority" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Priority</label>
               <select
                 id="create-priority"
                 value={form.priority}
@@ -183,7 +183,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Department + Team */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department *</label>
+              <label htmlFor="create-department" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department *</label>
               <input
                 id="create-department"
                 value={form.department}
@@ -193,7 +193,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team *</label>
+              <label htmlFor="create-team" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team *</label>
               <input
                 id="create-team"
                 value={form.team}
@@ -207,7 +207,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Assignee + Created By */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee *</label>
+              <label htmlFor="create-assignee" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee *</label>
               <input
                 id="create-assignee"
                 value={form.assignee}
@@ -217,7 +217,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By *</label>
+              <label htmlFor="create-created-by" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By *</label>
               <input
                 id="create-created-by"
                 value={form.created_by}
@@ -231,7 +231,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Due Date + Sprint */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Due Date</label>
+              <label htmlFor="create-due-date" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Due Date</label>
               <input
                 id="create-due-date"
                 type="date"
@@ -241,7 +241,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint *</label>
+              <label htmlFor="create-sprint" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint *</label>
               <input
                 id="create-sprint"
                 value={form.sprint}
@@ -255,7 +255,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Story Points + Estimated Hours */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Story Points</label>
+              <label htmlFor="create-story-points" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Story Points</label>
               <select
                 id="create-story-points"
                 value={form.story_points}
@@ -266,7 +266,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Estimated Hours</label>
+              <label htmlFor="create-estimated-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Estimated Hours</label>
               <input
                 id="create-estimated-hours"
                 type="number"
@@ -281,7 +281,7 @@ export function CreateTaskForm({ onCreate }: Props) {
           {/* Quarter + Risk Level + Customer Impact */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Quarter</label>
+              <label htmlFor="create-quarter" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Quarter</label>
               <select
                 id="create-quarter"
                 value={form.quarter}
@@ -292,7 +292,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Risk Level</label>
+              <label htmlFor="create-risk-level" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Risk Level</label>
               <select
                 id="create-risk-level"
                 value={form.risk_level}
@@ -303,7 +303,7 @@ export function CreateTaskForm({ onCreate }: Props) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Impact</label>
+              <label htmlFor="create-customer-impact" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Impact</label>
               <select
                 id="create-customer-impact"
                 value={form.customer_impact}
@@ -317,7 +317,7 @@ export function CreateTaskForm({ onCreate }: Props) {
 
           {/* SLA Hours */}
           <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
+            <label htmlFor="create-sla-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
             <select
               id="create-sla-hours"
               value={form.sla_hours}
@@ -330,7 +330,7 @@ export function CreateTaskForm({ onCreate }: Props) {
 
           {/* Tags */}
           <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tags</label>
+            <label htmlFor="create-tags" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tags</label>
             <input
               id="create-tags"
               value={form.tagsInput}

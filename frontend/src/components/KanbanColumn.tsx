@@ -33,12 +33,12 @@ const COLUMN_STYLES: Record<
 };
 
 interface Props {
-  status: string; // "Todo" | "In Progress" | "Review" | "Done"
-  tasks: Task[];
-  onUpdate: (id: number, data: any) => Promise<any>;
-  onDelete: (id: number) => Promise<void>;
-  onTaskClick: (task: Task) => void;
-  extra?: React.ReactNode;
+  readonly status: string;
+  readonly tasks: readonly Task[];
+  readonly onUpdate: (id: number, data: any) => Promise<any>;
+  readonly onDelete: (id: number) => Promise<void>;
+  readonly onTaskClick: (task: Task) => void;
+  readonly extra?: React.ReactNode;
 }
 
 export function KanbanColumn({ status, tasks, onUpdate, onDelete, onTaskClick, extra }: Props) {
@@ -62,7 +62,7 @@ export function KanbanColumn({ status, tasks, onUpdate, onDelete, onTaskClick, e
     const taskId = Number(taskIdStr);
     
     // Determine the status to save to backend
-    // Since our columns are: Todo, In Progress, Review, Done
+    // Since our columns are: to-do, In Progress, Review, Done
     // We update to the exact column name
     const newStatus = status === "Review" ? "Review" : (status as TaskStatus);
     await onUpdate(taskId, { status: newStatus });
@@ -96,7 +96,6 @@ export function KanbanColumn({ status, tasks, onUpdate, onDelete, onTaskClick, e
           <TaskCard
             key={task.id}
             task={task}
-            onUpdate={onUpdate}
             onDelete={onDelete}
             onTaskClick={onTaskClick}
           />
@@ -109,7 +108,7 @@ export function KanbanColumn({ status, tasks, onUpdate, onDelete, onTaskClick, e
         )}
       </div>
 
-      {/* Extra slot (e.g. create button/form) */}
+      {/* Extra slot */}
       {extra}
     </div>
   );

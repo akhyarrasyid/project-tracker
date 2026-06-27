@@ -58,8 +58,8 @@ export default function App() {
               </svg>
             </div>
             <div>
-              <h1 className="text-md font-bold text-slate-800 tracking-tight leading-none mb-0.5">TaskBoard</h1>
-              <span className="text-[10px] font-semibold text-slate-400">What The Dog Doin'</span>
+              <h1 className="text-md font-bold text-slate-800 tracking-tight leading-none mb-0.5">Project Tracker</h1>
+              <span className="text-[10px] font-semibold text-slate-400">Enterprise Task Board</span>
             </div>
           </div>
 

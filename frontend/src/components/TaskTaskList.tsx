@@ -1,8 +1,8 @@
 import type { Task } from "../types/task";
 
 interface Props {
-  tasks: Task[];
-  onTaskClick: (task: Task) => void;
+  readonly tasks: readonly Task[];
+  readonly onTaskClick: (task: Task) => void;
 }
 
 export function TaskTaskList({ tasks, onTaskClick }: Props) {
@@ -67,7 +67,15 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
             {tasks.map((task) => (
               <tr
                 key={task.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onTaskClick(task)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onTaskClick(task);
+                  }
+                }}
                 className="hover:bg-slate-50/50 cursor-pointer transition-colors"
               >
                 <td className="py-4 px-6 font-semibold text-blue-600 whitespace-nowrap">

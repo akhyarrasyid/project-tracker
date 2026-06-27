@@ -9,10 +9,9 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  task: Task;
-  onUpdate: (id: number, data: any) => Promise<any>;
-  onDelete: (id: number) => Promise<void>;
-  onTaskClick: (task: Task) => void;
+  readonly task: Task;
+  readonly onDelete: (id: number) => Promise<void>;
+  readonly onTaskClick: (task: Task) => void;
 }
 
 export function TaskCard({ task, onDelete, onTaskClick }: Props) {
@@ -45,8 +44,16 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
   return (
     <div
       draggable
+      role="button"
+      tabIndex={0}
       onDragStart={handleDragStart}
       onClick={() => onTaskClick(task)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onTaskClick(task);
+        }
+      }}
       className={`group relative bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing hover:border-blue-200 transition-all duration-200 ${
         loading ? "opacity-60 pointer-events-none" : ""
       }`}
@@ -73,7 +80,7 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
         <button
           onClick={handleDelete}
           title="Hapus"
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
