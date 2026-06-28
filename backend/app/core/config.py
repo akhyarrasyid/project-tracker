@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["*"]
     APP_TITLE: str = "Project Tracker API"
     APP_VERSION: str = "1.0.0"
+    
+    SECRET_KEY: str = "supersecretkeychangeinproduction"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     model_config = {
         "env_file": (BACKEND_DIR / ".env", PROJECT_ROOT / ".env"),
