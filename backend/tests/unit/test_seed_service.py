@@ -18,7 +18,7 @@ def mock_session_local(monkeypatch, db_session):
 
         def __getattr__(self, name):
             if name == "close":
-                return lambda: None
+                return lambda: db_session.expunge_all()
             return getattr(db_session, name)
 
     monkeypatch.setattr("app.services.seed_service.SessionLocal", MockSessionLocal)
