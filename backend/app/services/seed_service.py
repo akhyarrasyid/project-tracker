@@ -185,9 +185,109 @@ def cmd_dry_run(records: List[Dict[str, Any]]) -> None:
     sys.exit(0)  # dry-run is always informational; never a hard failure
 
 
-def cmd_seed(records: List[Dict[str, Any]]) -> None:
+def _get_or_create_default_entities(db: Session) -> Tuple[Project, Team]:
     from app.core.security import get_password_hash
 
+    default_dept = (
+        db.query(Department).filter(Department.name == DEFAULT_DEPT_NAME).first()
+    )
+    if not default_dept:
+        default_dept = Department(
+            name=DEFAULT_DEPT_NAME, description="Default Engineering Department"
+        )
+        db.add(default_dept)
+        db.flush()
+
+    default_team = db.query(Team).filter(Team.name == DEFAULT_TEAM_NAME).first()
+    if not default_team:
+        default_team = Team(
+            name=DEFAULT_TEAM_NAME,
+            department_id=default_dept.id,
+            description=DEFAULT_TEAM_NAME,
+        )
+        db.add(default_team)
+        db.flush()
+
+    default_project = (
+        db.query(Project).filter(Project.name == DEFAULT_PROJECT_NAME).first()
+    )
+    if not default_project:
+        default_project = Project(
+            name=DEFAULT_PROJECT_NAME,
+            key="DEF",
+            team_id=default_team.id,
+            status="ACTIVE",
+        )
+        db.add(default_project)
+        db.flush()
+
+    default_user = db.query(User).filter(User.username == "admin").first()
+    if not default_user:
+        default_user = User(
+            email="admin@tracker.com",
+            username="admin",
+            full_name="Administrator",
+            hashed_password=get_password_hash("password123"),
+            role="admin",
+            team_id=default_team.id,
+            is_active=True,
+        )
+        db.add(default_user)
+        db.flush()
+
+    return default_project, default_team
+
+
+def _prepare_task_record(
+    d: Dict[str, Any], default_project: Project, default_team: Team, ctx: SeederContext
+) -> Task:
+    # Resolve hierarchy
+    dept_str = d.get("department")
+    team_str = d.get("team")
+
+    if dept_str and team_str:
+        dept_id = ctx.get_or_create_dept(dept_str)
+        team_id = ctx.get_or_create_team(team_str, dept_id)
+        project_id = ctx.get_or_create_project(f"{team_str} Project", team_id)
+    else:
+        project_id = default_project.id
+        team_id = default_team.id
+
+    # Resolve assignee and creator
+    assignee_str = d.get("assignee")
+    assignee_id = (
+        ctx.get_or_create_user(assignee_str, team_id) if assignee_str else None
+    )
+
+    creator_str = d.get("created_by") or "admin"
+    created_by_id = ctx.get_or_create_user(creator_str, team_id)
+
+    # Resolve sprint
+    sprint_str = d.get("sprint")
+    sprint_id = ctx.get_or_create_sprint(sprint_str) if sprint_str else None
+
+    # Build Task DB attributes
+    task_kwargs = {
+        k: v
+        for k, v in d.items()
+        if k not in ["department", "team", "assignee", "created_by", "sprint"]
+    }
+
+    task_kwargs["project_id"] = project_id
+    task_kwargs["assignee_id"] = assignee_id
+    task_kwargs["created_by_id"] = created_by_id
+    task_kwargs["sprint_id"] = sprint_id
+
+    # Strip any None from list-typed columns
+    if "dependencies" not in task_kwargs:
+        task_kwargs["dependencies"] = []
+    if "tags" not in task_kwargs:
+        task_kwargs["tags"] = []
+
+    return Task(**task_kwargs)
+
+
+def cmd_seed(records: List[Dict[str, Any]]) -> None:
     log.info(f"Seeding {len(records)} records ...")
     valid_data, _ = _validate_records(records)
     if not valid_data:
@@ -196,108 +296,15 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
     db = SessionLocal()
     try:
-        # We need a default dept/team/project/user to fall back on
-        default_dept = (
-            db.query(Department).filter(Department.name == DEFAULT_DEPT_NAME).first()
-        )
-        if not default_dept:
-            default_dept = Department(
-                name=DEFAULT_DEPT_NAME, description="Default Engineering Department"
-            )
-            db.add(default_dept)
-            db.flush()
-
-        default_team = db.query(Team).filter(Team.name == DEFAULT_TEAM_NAME).first()
-        if not default_team:
-            default_team = Team(
-                name=DEFAULT_TEAM_NAME,
-                department_id=default_dept.id,
-                description=DEFAULT_TEAM_NAME,
-            )
-            db.add(default_team)
-            db.flush()
-
-        default_project = (
-            db.query(Project).filter(Project.name == DEFAULT_PROJECT_NAME).first()
-        )
-        if not default_project:
-            default_project = Project(
-                name=DEFAULT_PROJECT_NAME,
-                key="DEF",
-                team_id=default_team.id,
-                status="ACTIVE",
-            )
-            db.add(default_project)
-            db.flush()
-
-        default_user = db.query(User).filter(User.username == "admin").first()
-        if not default_user:
-            default_user = User(
-                email="admin@tracker.com",
-                username="admin",
-                full_name="Administrator",
-                hashed_password=get_password_hash("password123"),
-                role="admin",
-                team_id=default_team.id,
-                is_active=True,
-            )
-            db.add(default_user)
-            db.flush()
-
-        # Cache lookups using context helper
+        default_project, default_team = _get_or_create_default_entities(db)
         ctx = SeederContext(db)
         existing_ids = {row[0] for row in db.query(Task.id).all()}
 
-        # Prepare records for insertion
         to_insert = []
         for d in valid_data:
             if d.get("id") in existing_ids:
                 continue
-
-            # Resolve hierarchy
-            dept_str = d.get("department")
-            team_str = d.get("team")
-
-            if dept_str and team_str:
-                dept_id = ctx.get_or_create_dept(dept_str)
-                team_id = ctx.get_or_create_team(team_str, dept_id)
-                project_id = ctx.get_or_create_project(f"{team_str} Project", team_id)
-            else:
-                project_id = default_project.id
-                team_id = default_team.id
-
-            # Resolve assignee and creator
-            assignee_str = d.get("assignee")
-            assignee_id = (
-                ctx.get_or_create_user(assignee_str, team_id) if assignee_str else None
-            )
-
-            creator_str = d.get("created_by") or "admin"
-            created_by_id = ctx.get_or_create_user(creator_str, team_id)
-
-            # Resolve sprint
-            sprint_str = d.get("sprint")
-            sprint_id = ctx.get_or_create_sprint(sprint_str) if sprint_str else None
-
-            # Build Task DB attributes
-            task_kwargs = {
-                k: v
-                for k, v in d.items()
-                if k not in ["department", "team", "assignee", "created_by", "sprint"]
-            }
-
-            task_kwargs["project_id"] = project_id
-            task_kwargs["assignee_id"] = assignee_id
-            task_kwargs["created_by_id"] = created_by_id
-            task_kwargs["sprint_id"] = sprint_id
-
-            # Strip any None from list-typed columns
-            if "dependencies" not in task_kwargs:
-                task_kwargs["dependencies"] = []
-            if "tags" not in task_kwargs:
-                task_kwargs["tags"] = []
-
-            to_insert.append(Task(**task_kwargs))
+            to_insert.append(_prepare_task_record(d, default_project, default_team, ctx))
 
         if not to_insert:
             log.info("All records already exist — nothing to insert.")
