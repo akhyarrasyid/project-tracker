@@ -6,8 +6,10 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.db.models.task import Task
+from app.db.models.project import Project
+from app.db.models.team import Team
+from app.db.models.department import Department
 from app.schemas.task import TaskCreate, TaskUpdate
-
 
 _SORTABLE_COLUMNS = {
     "id": Task.id,
@@ -29,7 +31,7 @@ class TaskRepository:
 
     @staticmethod
     def get_by_id(db: Session, task_id: int) -> Optional[Task]:
-        return db.query(Task).filter(Task.id == task_id).first()
+        return db.query(Task).filter(Task.id == task_id, Task.deleted_at.is_(None)).first()
 
     @staticmethod
     def list(
@@ -39,17 +41,24 @@ class TaskRepository:
         size: int = 20,
         status: Optional[str] = None,
         priority: Optional[str] = None,
-        department: Optional[str] = None,
-        assignee: Optional[str] = None,
-        team: Optional[str] = None,
-        sprint: Optional[str] = None,
+        project_id: Optional[int] = None,
+        sprint_id: Optional[int] = None,
+        assignee_id: Optional[int] = None,
+        team_id: Optional[int] = None,
+        department_id: Optional[int] = None,
         quarter: Optional[str] = None,
         risk_level: Optional[str] = None,
         search: Optional[str] = None,
         **kwargs,
     ) -> Tuple[List[Task], int]:
         """Return (items, total) with optional filtering, search and pagination."""
-        q = db.query(Task)
+        q = db.query(Task).filter(Task.deleted_at.is_(None))
+
+        # ── Relationships joins if needed ─────────────────────────────────────
+        if team_id or department_id:
+            q = q.join(Project, Task.project_id == Project.id)
+        if department_id:
+            q = q.join(Team, Project.team_id == Team.id)
 
         # ── Filters ───────────────────────────────────────────────────────────
         if status:
@@ -58,14 +67,16 @@ class TaskRepository:
         if priority:
             priorities = [p.strip() for p in priority.split(",")]
             q = q.filter(Task.priority.in_(priorities))
-        if department:
-            q = q.filter(Task.department == department)
-        if assignee:
-            q = q.filter(Task.assignee == assignee)
-        if team:
-            q = q.filter(Task.team == team)
-        if sprint:
-            q = q.filter(Task.sprint == sprint)
+        if project_id is not None:
+            q = q.filter(Task.project_id == project_id)
+        if sprint_id is not None:
+            q = q.filter(Task.sprint_id == sprint_id)
+        if assignee_id is not None:
+            q = q.filter(Task.assignee_id == assignee_id)
+        if team_id is not None:
+            q = q.filter(Project.team_id == team_id)
+        if department_id is not None:
+            q = q.filter(Team.department_id == department_id)
         if quarter:
             q = q.filter(Task.quarter == quarter)
         if risk_level:
@@ -97,38 +108,3 @@ class TaskRepository:
         items = q.offset(offset).limit(size).all()
 
         return items, total
-
-    # ── Write ─────────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def create(db: Session, task_in: TaskCreate) -> Task:
-        data = task_in.model_dump()
-        task = Task(**data)
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-        return task
-
-    @staticmethod
-    def update(db: Session, task: Task, task_in: TaskUpdate) -> Task:
-        updates = task_in.model_dump(exclude_unset=True)
-        for field, value in updates.items():
-            setattr(task, field, value)
-        db.commit()
-        db.refresh(task)
-        return task
-
-    @staticmethod
-    def delete(db: Session, task: Task) -> None:
-        db.delete(task)
-        db.commit()
-
-    # ── Bulk ──────────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def bulk_create(db: Session, tasks_data: List[dict]) -> int:
-        """Insert many tasks in a single transaction. Returns count inserted."""
-        tasks = [Task(**data) for data in tasks_data]
-        db.bulk_save_objects(tasks)
-        db.commit()
-        return len(tasks)
