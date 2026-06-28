@@ -10,7 +10,7 @@ export interface UseTasksResult {
   error: string | null;
   page: number;
   setPage: (page: number) => void;
-  createTask: (data: TaskCreate) => Promise<Task>;
+  createTask: (data: TaskCreate, projectId: number) => Promise<Task>;
   updateTask: (id: number, data: TaskUpdate) => Promise<Task>;
   deleteTask: (id: number) => Promise<void>;
   refetch: () => void;
@@ -18,7 +18,7 @@ export interface UseTasksResult {
 
 const DEFAULT_SIZE = 20;
 
-export function useTasks(): UseTasksResult {
+export function useTasks(projectId: number | null = null): UseTasksResult {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<
     Pick<TaskListResponse, "total" | "page" | "size" | "pages">
@@ -27,11 +27,22 @@ export function useTasks(): UseTasksResult {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
+  // Reset page when projectId changes
+  useEffect(() => {
+    setPage(1);
+  }, [projectId]);
+
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await taskApi.getAll({ page, size: DEFAULT_SIZE });
+      
+      const response = await taskApi.getAll({ 
+        page, 
+        size: DEFAULT_SIZE,
+        project_id: projectId || undefined 
+      });
+      
       setTasks(response.items);
       setPagination({
         total: response.total,
@@ -40,20 +51,22 @@ export function useTasks(): UseTasksResult {
         pages: response.pages,
       });
     } catch {
-      setError("Gagal memuat tasks. Pastikan backend berjalan.");
+      setError("Gagal memuat tasks. Pastikan Anda memiliki akses ke proyek ini.");
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, projectId]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
-  const createTask = async (data: TaskCreate): Promise<Task> => {
-    const newTask = await taskApi.create(data);
-    // Prepend to the list (optimistic); a refetch keeps pagination accurate
-    setTasks((prev) => [newTask, ...prev]);
+  const createTask = async (data: TaskCreate, pId: number): Promise<Task> => {
+    const newTask = await taskApi.create(data, pId);
+    // Prepend to the list if it belongs to the current workspace
+    if (!projectId || pId === projectId) {
+      setTasks((prev) => [newTask, ...prev]);
+    }
     return newTask;
   };
 

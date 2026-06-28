@@ -4,8 +4,6 @@ import App from "./App";
 import { taskApi } from "./api/tasks";
 import "@testing-library/jest-dom";
 
-// ── Mock API ─────────────────────────────────────────────────────────────────
-
 vi.mock("./api/tasks", () => ({
   taskApi: {
     getAll: vi.fn(),
@@ -13,6 +11,31 @@ vi.mock("./api/tasks", () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+  },
+}));
+
+vi.mock("./contexts/AuthContext", () => ({
+  AuthProvider: ({ children }: any) => children,
+  useAuth: () => ({
+    user: {
+      id: 1,
+      username: "admin",
+      full_name: "Administrator",
+      role: "admin",
+      team_id: 1,
+    },
+    loading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+  }),
+}));
+
+vi.mock("./api/meta", () => ({
+  metaApi: {
+    getDepartments: vi.fn(() => Promise.resolve([])),
+    getTeams: vi.fn(() => Promise.resolve([])),
+    getProjects: vi.fn(() => Promise.resolve([{ id: 1, name: "Project 1", key: "PRJ", status: "Active" }])),
+    getUsers: vi.fn(() => Promise.resolve([])),
   },
 }));
 
@@ -170,7 +193,7 @@ describe("TaskBoard Application", () => {
 
     fireEvent.click(screen.getByText("+ Tambah Task Baru"));
     fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
+    expect(screen.getByText("Judul task wajib diisi")).toBeInTheDocument();
   });
 
   it("can cancel the create form", async () => {
@@ -185,7 +208,7 @@ describe("TaskBoard Application", () => {
     expect(screen.queryByText("Buat Task")).not.toBeInTheDocument();
   });
 
-  it("validates missing department, team, assignee, or created_by in create form", async () => {
+  it("validates missing project in create form", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
     render(<App />);
     await screen.findByText("+ Tambah Task Baru");
@@ -196,8 +219,12 @@ describe("TaskBoard Application", () => {
     const titleInput = screen.getByPlaceholderText("Judul task... *");
     fireEvent.change(titleInput, { target: { value: "Task Baru" } });
 
+    // Set project select to empty
+    const projectSelect = document.getElementById("create-project-select") as HTMLSelectElement;
+    fireEvent.change(projectSelect, { target: { value: "" } });
+
     fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
+    expect(screen.getByText("Proyek wajib dipilih")).toBeInTheDocument();
   });
 
   it("successfully creates a task with all fields", async () => {
@@ -211,12 +238,7 @@ describe("TaskBoard Application", () => {
     fireEvent.click(screen.getByText("+ Tambah Task Baru"));
     
     fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "New Task" } });
-    fireEvent.change(screen.getByPlaceholderText("Department *"), { target: { value: "Engineering" } });
-    fireEvent.change(screen.getByPlaceholderText("Team *"), { target: { value: "Backend" } });
-    fireEvent.change(screen.getByPlaceholderText("Assignee *"), { target: { value: "Alice" } });
-    fireEvent.change(screen.getByPlaceholderText("Created by *"), { target: { value: "Admin" } });
-    fireEvent.change(screen.getByPlaceholderText("Sprint (e.g. Sprint-1) *"), { target: { value: "Sprint-1" } });
-    fireEvent.change(screen.getByPlaceholderText("Tags (comma-separated, max 4): security, automation"), { target: { value: "tag1, tag2" } });
+    fireEvent.change(screen.getByPlaceholderText("security, automation"), { target: { value: "tag1, tag2" } });
 
     fireEvent.click(screen.getByText("Buat Task"));
 
@@ -241,14 +263,14 @@ describe("TaskBoard Application", () => {
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 2, size: 20 });
+      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 2, size: 20, project_id: 1 });
     });
 
     const prevBtn = screen.getByTitle("Halaman Sebelumnya");
     fireEvent.click(prevBtn);
 
     await waitFor(() => {
-      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 1, size: 20 });
+      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 1, size: 20, project_id: 1 });
     });
   });
 
@@ -294,11 +316,6 @@ describe("TaskBoard Application", () => {
 
     fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "A" } });
     fireEvent.change(screen.getByPlaceholderText("Deskripsi (opsional)..."), { target: { value: "Deskripsi Baru" } });
-    fireEvent.change(screen.getByPlaceholderText("Department *"), { target: { value: "B" } });
-    fireEvent.change(screen.getByPlaceholderText("Team *"), { target: { value: "C" } });
-    fireEvent.change(screen.getByPlaceholderText("Assignee *"), { target: { value: "D" } });
-    fireEvent.change(screen.getByPlaceholderText("Created by *"), { target: { value: "E" } });
-    fireEvent.change(screen.getByPlaceholderText("Sprint (e.g. Sprint-1) *"), { target: { value: "F" } });
 
     // Target inputs by ID
     const statusSelect = document.getElementById("create-status") as HTMLSelectElement;
@@ -340,24 +357,21 @@ describe("TaskBoard Application", () => {
     await screen.findByText("Done Task");
 
     // Overdue task should have overdue color label
-    const overdueLabel = screen.getByText("📅 1 Jan 2020");
+    const overdueLabel = screen.getByText("📅 1 Jan");
     expect(overdueLabel).toHaveClass("text-red-500");
   });
 
   it("handles creation API error", async () => {
     vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    vi.mocked(taskApi.create).mockRejectedValue(new Error("API Error"));
+    vi.mocked(taskApi.create).mockRejectedValue({
+      response: { data: { detail: "Gagal membuat task. Coba lagi." } }
+    } as any);
 
     render(<App />);
     await screen.findByText("+ Tambah Task Baru");
     fireEvent.click(screen.getByText("+ Tambah Task Baru"));
 
     fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "Fail Task" } });
-    fireEvent.change(screen.getByPlaceholderText("Department *"), { target: { value: "B" } });
-    fireEvent.change(screen.getByPlaceholderText("Team *"), { target: { value: "C" } });
-    fireEvent.change(screen.getByPlaceholderText("Assignee *"), { target: { value: "D" } });
-    fireEvent.change(screen.getByPlaceholderText("Created by *"), { target: { value: "E" } });
-    fireEvent.change(screen.getByPlaceholderText("Sprint (e.g. Sprint-1) *"), { target: { value: "F" } });
 
     fireEvent.click(screen.getByText("Buat Task"));
 
