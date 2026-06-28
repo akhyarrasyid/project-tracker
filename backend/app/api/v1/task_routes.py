@@ -1,19 +1,32 @@
 """Task CRUD routes — GET/POST/PUT/DELETE with authentication and project authorization."""
 
+import csv
+import datetime
+import io
 import math
-from typing import Annotated, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from typing import Annotated, List, Optional, cast
 
 from app.core.exceptions import NotFoundException
 from app.core.security import check_project_access, get_current_user
+from app.db.models.project import Project
 from app.db.models.project_member import ProjectMember
+from app.db.models.team import Team
 from app.db.models.user import User
 from app.db.repositories.task_repository import TaskRepository
 from app.db.session import get_db
 from app.schemas.task import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
 from app.services.task_service import TaskService
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -166,6 +179,379 @@ def list_tasks(
         pages=pages,
     )
 
+# ── CSV Import Endpoints ──────────────────────────────────────────────────────
+
+
+@router.get("/import-template", summary="Download CSV template for task import")
+def import_template(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    # Try to find a real project that matches user's department (if not admin)
+    project = None
+    if current_user.role != "admin":
+        user_team = db.query(Team).filter(Team.id == current_user.team_id).first()
+        if user_team:
+            project = (
+                db.query(Project)
+                .join(Team, Project.team_id == Team.id)
+                .filter(
+                    Team.department_id == user_team.department_id,
+                    Project.deleted_at.is_(None),
+                )
+                .first()
+            )
+    
+    if not project:
+        project = db.query(Project).filter(Project.deleted_at.is_(None)).first()
+
+    proj_id = str(project.id) if project else ""
+    proj_key = project.key if project else "FT"
+
+    user = db.query(User).filter(User.deleted_at.is_(None)).first()
+    user_email = user.email if user else "worker@example.com"
+
+    headers = [
+        "project_id",
+        "project_key",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "due_date",
+        "story_points",
+        "estimated_hours",
+        "assignee_email",
+        "tags",
+    ]
+    sample_row = [
+        proj_id,
+        proj_key,
+        "Implementasi Fitur Baru",
+        "Deskripsi detail tugas baru",
+        "Todo",
+        "Medium",
+        (datetime.date.today() + datetime.timedelta(days=7)).isoformat(),
+        "3",
+        "8",
+        user_email,
+        "frontend,feature",
+    ]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerow(sample_row)
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=tasks_import_template.csv"
+        },
+    )
+
+
+@router.post("/import-csv", summary="Import tasks from CSV file")
+async def import_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        content = await file.read()
+        csv_text = content.decode("utf-8-sig")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Gagal membaca file: {str(e)}",
+        )
+
+    csv_file = io.StringIO(csv_text)
+    reader = csv.DictReader(csv_file)
+
+    expected_headers = {"project_id", "project_key", "title"}
+    if not reader.fieldnames or not expected_headers.intersection(
+        set(reader.fieldnames)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Header CSV tidak valid. Harus mengandung kolom: 'title' dan salah satu dari 'project_id' atau 'project_key'.",
+        )
+
+    errors = []
+    tasks_to_create = []
+
+    user_dept_id = None
+    if current_user.role != "admin":
+        user_team = db.query(Team).filter(Team.id == current_user.team_id).first()
+        if user_team:
+            user_dept_id = user_team.department_id
+
+    for idx, row in enumerate(reader, start=2):
+        proj_id_str = row.get("project_id", "").strip() if "project_id" in row else ""
+        proj_key_str = (
+            row.get("project_key", "").strip() if "project_key" in row else ""
+        )
+        title = row.get("title", "").strip() if "title" in row else ""
+        description = (
+            row.get("description", "").strip() if "description" in row else ""
+        )
+        status_str = row.get("status", "").strip() if "status" in row else "Todo"
+        priority_str = (
+            row.get("priority", "").strip() if "priority" in row else "Medium"
+        )
+        due_date_str = row.get("due_date", "").strip() if "due_date" in row else ""
+        sp_str = row.get("story_points", "").strip() if "story_points" in row else "1"
+        est_hours_str = (
+            row.get("estimated_hours", "").strip()
+            if "estimated_hours" in row
+            else "8"
+        )
+        assignee_email = (
+            row.get("assignee_email", "").strip() if "assignee_email" in row else ""
+        )
+        tags_str = row.get("tags", "").strip() if "tags" in row else ""
+
+        # 1. Project Lookup
+        project = None
+        if proj_id_str:
+            try:
+                pid = int(proj_id_str)
+                project = (
+                    db.query(Project)
+                    .filter(Project.id == pid, Project.deleted_at.is_(None))
+                    .first()
+                )
+            except ValueError:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "project_id",
+                        "message": "ID Proyek harus berupa angka.",
+                    }
+                )
+                continue
+        elif proj_key_str:
+            project = (
+                db.query(Project)
+                .filter(Project.key == proj_key_str, Project.deleted_at.is_(None))
+                .first()
+            )
+
+        if not project:
+            errors.append(
+                {
+                    "row": idx,
+                    "field": "project_id",
+                    "message": "Proyek tidak ditemukan.",
+                }
+            )
+            continue
+
+        # 2. Department Boundary Validation
+        if current_user.role != "admin":
+            proj_team = db.query(Team).filter(Team.id == project.team_id).first()
+            if not proj_team or proj_team.department_id != user_dept_id:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "project_key",
+                        "message": f"Anda tidak diizinkan membuat task untuk proyek '{project.name}' di departemen lain.",
+                    }
+                )
+                continue
+
+        # 3. Title Validation
+        if not title:
+            errors.append(
+                {"row": idx, "field": "title", "message": "Judul task wajib diisi."}
+            )
+            continue
+
+        # 4. Status Validation
+        if status_str not in ["Todo", "In Progress", "Review", "Blocked", "Done"]:
+            errors.append(
+                {
+                    "row": idx,
+                    "field": "status",
+                    "message": f"Status '{status_str}' tidak valid. Pilihan: Todo, In Progress, Review, Blocked, Done.",
+                }
+            )
+            continue
+
+        # 5. Priority Validation
+        if priority_str not in ["Low", "Medium", "High", "Critical"]:
+            errors.append(
+                {
+                    "row": idx,
+                    "field": "priority",
+                    "message": f"Prioritas '{priority_str}' tidak valid. Pilihan: Low, Medium, High, Critical.",
+                }
+            )
+            continue
+
+        # 6. Due Date Validation
+        due_date = None
+        if not due_date_str:
+            due_date = datetime.date.today() + datetime.timedelta(days=7)
+        else:
+            try:
+                due_date = datetime.datetime.strptime(due_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "due_date",
+                        "message": "Format tanggal jatuh tempo salah. Gunakan format YYYY-MM-DD.",
+                    }
+                )
+                continue
+
+        # 7. Story Points Validation
+        try:
+            sp = int(sp_str)
+            if sp not in [1, 2, 3, 5, 8, 13]:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "story_points",
+                        "message": "Story Points harus salah satu dari: 1, 2, 3, 5, 8, 13.",
+                    }
+                )
+                continue
+        except ValueError:
+            errors.append(
+                {
+                    "row": idx,
+                    "field": "story_points",
+                    "message": "Story Points harus berupa angka.",
+                }
+            )
+            continue
+
+        # 8. Estimated Hours Validation
+        try:
+            est_hours = int(est_hours_str)
+            if est_hours < 1:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "estimated_hours",
+                        "message": "Estimasi jam harus minimal 1.",
+                    }
+                )
+                continue
+        except ValueError:
+            errors.append(
+                {
+                    "row": idx,
+                    "field": "estimated_hours",
+                    "message": "Estimasi jam harus berupa angka.",
+                }
+            )
+            continue
+
+        # 9. Assignee Email Validation
+        assignee_id = None
+        if assignee_email:
+            assignee = (
+                db.query(User)
+                .filter(User.email == assignee_email, User.deleted_at.is_(None))
+                .first()
+            )
+            if not assignee:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "assignee_email",
+                        "message": f"Pengguna dengan email '{assignee_email}' tidak ditemukan.",
+                    }
+                )
+                continue
+            assignee_id = assignee.id
+
+        # 10. Tags Validation
+        tags = []
+        if tags_str:
+            tags = [t.strip() for t in tags_str.split(",") if t.strip()]
+            if len(tags) > 4:
+                errors.append(
+                    {
+                        "row": idx,
+                        "field": "tags",
+                        "message": "Maksimal 4 tag diperbolehkan.",
+                    }
+                )
+                continue
+
+        tasks_to_create.append(
+            {
+                "project_id": project.id,
+                "title": title,
+                "description": description,
+                "status": status_str,
+                "priority": priority_str,
+                "due_date": due_date,
+                "story_points": sp,
+                "estimated_hours": est_hours,
+                "assignee_id": assignee_id,
+                "tags": tags,
+            }
+        )
+
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "message": "Gagal mengimpor CSV. Ditemukan kesalahan pada baris data.",
+                "errors": errors,
+            },
+        )
+
+    if not tasks_to_create:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tidak ada data task yang valid untuk diimpor.",
+        )
+
+    created_tasks = []
+    try:
+        for t_data in tasks_to_create:
+            from app.schemas.task import TaskCreate as SchemaTaskCreate
+            from app.schemas.task import TaskPriority, TaskStatus
+
+            t_create = SchemaTaskCreate(
+                title=cast(str, t_data["title"]),
+                description=cast(str, t_data["description"]),
+                status=TaskStatus(cast(str, t_data["status"])),
+                priority=TaskPriority(cast(str, t_data["priority"])),
+                assignee_id=cast(Optional[int], t_data["assignee_id"]),
+                due_date=cast(datetime.date, t_data["due_date"]),
+                story_points=cast(int, t_data["story_points"]),
+                estimated_hours=cast(int, t_data["estimated_hours"]),
+                tags=cast(List[str], t_data["tags"]),
+            )
+            new_task = TaskService.create_task(
+                db,
+                cast(int, t_data["project_id"]),
+                t_create,
+                current_user.id,
+                commit=False,
+            )
+            created_tasks.append(new_task)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Kesalahan internal saat menyimpan ke database: {str(e)}",
+        )
+
+    return {
+        "message": f"Berhasil mengimpor {len(created_tasks)} task.",
+        "count": len(created_tasks),
+    }
+
 
 # ── GET /tasks/{id} ───────────────────────────────────────────────────────────
 
@@ -244,3 +630,4 @@ def delete_task(
     check_project_access(db, current_user, task.project_id, min_role="MEMBER")
     TaskService.soft_delete_task(db, task, current_user.id)
     return None
+

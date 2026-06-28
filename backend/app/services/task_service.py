@@ -126,7 +126,7 @@ class TaskService:
 
     @staticmethod
     def create_task(
-        db: Session, project_id: int, task_in: TaskCreate, creator_id: int
+        db: Session, project_id: int, task_in: TaskCreate, creator_id: int, commit: bool = True
     ) -> Task:
         data = task_in.model_dump()
 
@@ -135,8 +135,11 @@ class TaskService:
 
         task = Task(project_id=project_id, created_by_id=creator_id, **data)
         db.add(task)
-        db.commit()
-        db.refresh(task)
+        if commit:
+            db.commit()
+            db.refresh(task)
+        else:
+            db.flush()
 
         # Log creation
         ActivityLoggerService.log(
