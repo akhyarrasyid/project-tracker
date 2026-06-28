@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -52,3 +54,34 @@ def test_list_tasks_worker_unauthorized_project_filter(task_client, db_session):
     resp = task_client.get("/api/v1/tasks/?project_id=99999")
     assert resp.status_code == 403
     assert resp.json()["detail"] == "You do not have access to this project"
+
+
+def test_delete_task_member_cannot_delete_another_users_issue(task_client, db_session):
+    from app.db.models.task import Task
+
+    seed = seed_test_hierarchy(db_session)
+    task = Task(
+        title="Admin-owned task",
+        description="Owned by admin",
+        project_id=seed["project_id"],
+        created_by_id=seed["admin"].id,
+        due_date=datetime.date(2025, 12, 31),
+        story_points=3,
+        estimated_hours=8,
+        actual_hours=0,
+        progress_percentage=0,
+        quarter="Q4",
+        risk_level="Low",
+        customer_impact="None",
+        sla_hours=48,
+        dependencies=[],
+        tags=[],
+        number=1,
+    )
+    db_session.add(task)
+    db_session.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: seed["worker"]
+
+    resp = task_client.delete(f"/api/v1/tasks/{task.id}")
+    assert resp.status_code == 403
