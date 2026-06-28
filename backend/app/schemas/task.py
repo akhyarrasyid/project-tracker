@@ -206,6 +206,13 @@ class TaskResponse(BaseModel):
     dependencies: List[int]
     tags: List[str]
 
+    # Legacy fields resolved from property helpers
+    department: Optional[str] = None
+    team: Optional[str] = None
+    assignee: Optional[str] = None
+    created_by: Optional[str] = None
+    sprint: Optional[str] = None
+
     @field_serializer("created_at", "updated_at", "completed_at")
     def serialize_dt(self, dt: Optional[datetime.datetime], _info) -> Optional[str]:
         if dt is None:
