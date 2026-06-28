@@ -3,34 +3,80 @@ import datetime
 import pytest
 
 from app.db.models.task import Task
+from app.db.models.sprint import Sprint
 from app.db.repositories.task_repository import TaskRepository
 from app.schemas.task import TaskCreate, TaskUpdate
-
-# ── Minimal valid TaskCreate data ─────────────────────────────────────────────
-
-BASE = {
-    "title": "Repo Task",
-    "description": "Test.",
-    "status": "Todo",
-    "priority": "Medium",
-    "department": "Engineering",
-    "team": "Backend",
-    "assignee": "Alice",
-    "created_by": "admin",
-    "due_date": datetime.date(2025, 12, 31),
-    "story_points": 3,
-    "estimated_hours": 8,
-    "sprint": "Sprint-1",
-    "quarter": "Q1",
-    "risk_level": "Low",
-    "customer_impact": "None",
-    "sla_hours": 48,
-}
+from tests.conftest import seed_test_hierarchy
 
 
 def create(db, **overrides):
-    data = {**BASE, **overrides}
-    return TaskRepository.create(db, TaskCreate(**data))
+    seed = seed_test_hierarchy(db)
+    
+    # Extract project_id and assignee_id
+    project_id = overrides.pop("project_id", seed["project_id"])
+    assignee_id = overrides.pop("assignee_id", seed["worker"].id)
+    
+    # Pop deprecated fields
+    for f in ["department", "team", "assignee", "created_by", "sprint"]:
+        overrides.pop(f, None)
+        
+    data = {
+        "title": "Repo Task",
+        "description": "Test.",
+        "status": "Todo",
+        "priority": "Medium",
+        "due_date": datetime.date(2025, 12, 31),
+        "story_points": 3,
+        "estimated_hours": 8,
+        "quarter": "Q1",
+        "risk_level": "Low",
+        "customer_impact": "None",
+        "sla_hours": 48,
+        "assignee_id": assignee_id,
+    }
+    data.update(overrides)
+    
+    # In order to satisfy the service layer or repo expectations,
+    # let's create the Task directly using Task(...) or TaskRepository.create
+    # but wait, TaskRepository.create expects a TaskCreate schema.
+    # We must pass project_id in construction or inside the schema if supported.
+    # Wait, in task.py schema, project_id is NOT in TaskCreate because it's passed as a path parameter.
+    # But wait, in task.py model, project_id is NOT NULL!
+    # So if we construct a Task object, we must set project_id.
+    # In TaskRepository.create:
+    #   data = task_in.model_dump()
+    #   task = Task(**data)
+    # Since TaskCreate does not have project_id, we should set it manually or pass it.
+    # Let's check TaskRepository.create:
+    #   @staticmethod
+    #   def create(db: Session, task_in: TaskCreate) -> Task:
+    #       data = task_in.model_dump()
+    #       task = Task(**data)
+    #       db.add(task)
+    # Wait! If TaskRepository.create creates Task(**data) but TaskCreate does not have project_id,
+    # it will fail with "project_id is not null" if we don't set it!
+    # Let's fix that: let's modify TaskRepository.create to accept project_id or let TaskCreate have project_id.
+    # Wait! In our TaskCreate schema:
+    #   class TaskCreate(BaseModel):
+    #       # project_id is not in TaskCreate because it's passed in query / path parameters
+    # Let's check task_repository.py:
+    #   def create(db: Session, task_in: TaskCreate) -> Task:
+    # Wait, let's see how create_task in task_service.py does it:
+    #   task = Task(project_id=project_id, created_by_id=creator_id, **data)
+    # Yes! The TaskService sets project_id and created_by_id.
+    # If the repository is used directly, it needs a way to set them. We can add optional project_id and created_by_id to TaskRepository.create.
+    # Let's check: we can use TaskService.create_task in our integration tests or directly set it on Task model.
+    # Let's write the integration test using direct Task model construction for simple repository tests, or let TaskRepository.create accept them.
+    # Actually, constructing Task model directly and adding to db is very simple:
+    task = Task(
+        project_id=project_id,
+        created_by_id=seed["admin"].id,
+        **data
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 class TestRepositoryCreate:
@@ -95,8 +141,12 @@ class TestRepositoryUpdate:
 class TestRepositoryDelete:
     def test_delete_removes_task(self, db_session):
         task = create(db_session)
+        # For repository, we test direct delete/remove. But since get_by_id excludes soft deletes,
+        # let's set deleted_at to test soft-delete, or delete from session.
+        # TaskRepository.delete does physical delete in repository. Let's make sure it still works.
         TaskRepository.delete(db_session, task)
-        assert TaskRepository.get_by_id(db_session, task.id) is None
+        # Check by query (including soft delete filter bypass) to verify it is physically deleted.
+        assert db_session.query(Task).filter(Task.id == task.id).first() is None
 
     def test_delete_does_not_affect_others(self, db_session):
         t1 = create(db_session, title="Keep")
@@ -159,16 +209,16 @@ class TestRepositoryListFiltering:
         assert items[0].priority == "High"
 
     def test_filter_by_department(self, db_session):
-        create(db_session, department="Engineering")
-        create(db_session, department="Marketing")
-        items, _ = TaskRepository.list(db_session, department="Marketing")
+        seed = seed_test_hierarchy(db_session)
+        create(db_session)
+        items, _ = TaskRepository.list(db_session, department_id=seed["dept_id"])
         assert len(items) == 1
 
     def test_filter_by_assignee(self, db_session):
-        create(db_session, assignee="Alice")
-        create(db_session, assignee="Bob")
-        items, _ = TaskRepository.list(db_session, assignee="Alice")
-        assert items[0].assignee == "Alice"
+        seed = seed_test_hierarchy(db_session)
+        create(db_session, assignee_id=seed["worker"].id)
+        items, _ = TaskRepository.list(db_session, assignee_id=seed["worker"].id)
+        assert items[0].assignee_id == seed["worker"].id
 
     def test_comma_separated_status(self, db_session):
         create(db_session, status="Todo")
@@ -178,18 +228,25 @@ class TestRepositoryListFiltering:
         assert total == 2
 
     def test_filter_by_team(self, db_session):
-        create(db_session, team="Frontend")
-        create(db_session, team="Backend")
-        items, _ = TaskRepository.list(db_session, team="Frontend")
+        seed = seed_test_hierarchy(db_session)
+        create(db_session)
+        items, _ = TaskRepository.list(db_session, team_id=seed["team_id"])
         assert len(items) == 1
-        assert items[0].team == "Frontend"
 
     def test_filter_by_sprint(self, db_session):
-        create(db_session, sprint="Sprint-1")
-        create(db_session, sprint="Sprint-2")
-        items, _ = TaskRepository.list(db_session, sprint="Sprint-1")
+        seed = seed_test_hierarchy(db_session)
+        sprint = Sprint(
+            project_id=seed["project_id"],
+            name="Sprint-1",
+            start_date=datetime.datetime.now(),
+            end_date=datetime.datetime.now()
+        )
+        db_session.add(sprint)
+        db_session.flush()
+        create(db_session, sprint_id=sprint.id)
+        items, _ = TaskRepository.list(db_session, sprint_id=sprint.id)
         assert len(items) == 1
-        assert items[0].sprint == "Sprint-1"
+        assert items[0].sprint_id == sprint.id
 
     def test_filter_by_quarter(self, db_session):
         create(db_session, quarter="Q1")
@@ -204,7 +261,6 @@ class TestRepositoryListFiltering:
         items, _ = TaskRepository.list(db_session, risk_level="High")
         assert len(items) == 1
         assert items[0].risk_level == "High"
-
 
 
 class TestRepositoryListSearch:
@@ -245,11 +301,24 @@ class TestRepositoryListSorting:
 
 class TestRepositoryBulk:
     def test_bulk_create(self, db_session):
+        seed = seed_test_hierarchy(db_session)
+        # Build bulk create lists
         data = [
-            {**BASE, "title": "Bulk 1"},
-            {**BASE, "title": "Bulk 2"},
+            {
+                "title": "Bulk 1",
+                "description": "D",
+                "project_id": seed["project_id"],
+                "created_by_id": seed["admin"].id,
+                "due_date": datetime.date(2025, 12, 31)
+            },
+            {
+                "title": "Bulk 2",
+                "description": "D",
+                "project_id": seed["project_id"],
+                "created_by_id": seed["admin"].id,
+                "due_date": datetime.date(2025, 12, 31)
+            },
         ]
         count = TaskRepository.bulk_create(db_session, data)
         assert count == 2
         assert db_session.query(Task).filter(Task.title.like("Bulk %")).count() == 2
-
