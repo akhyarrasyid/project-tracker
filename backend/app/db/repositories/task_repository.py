@@ -50,16 +50,36 @@ class TaskRepository:
         risk_level: Optional[str] = None,
         search: Optional[str] = None,
         allowed_project_ids: Optional[List[int]] = None,
+        department: Optional[str] = None,
+        assignee: Optional[str] = None,
+        team: Optional[str] = None,
+        sprint: Optional[str] = None,
         **kwargs,
     ) -> Tuple[List[Task], int]:
         """Return (items, total) with optional filtering, search and pagination."""
         q = db.query(Task).filter(Task.deleted_at.is_(None))
 
         # ── Relationships joins if needed ─────────────────────────────────────
-        if team_id or department_id:
+        joined_project = False
+        joined_team = False
+
+        if team_id or department_id or department or team:
             q = q.join(Project, Task.project_id == Project.id)
-        if department_id:
+            joined_project = True
+        if department_id or department:
             q = q.join(Team, Project.team_id == Team.id)
+            joined_team = True
+        if department:
+            q = q.join(Department, Team.department_id == Department.id)
+        if team and not joined_team:
+            q = q.join(Team, Project.team_id == Team.id)
+            joined_team = True
+        if assignee:
+            from app.db.models.user import User
+            q = q.join(User, Task.assignee_id == User.id)
+        if sprint:
+            from app.db.models.sprint import Sprint
+            q = q.join(Sprint, Task.sprint_id == Sprint.id)
 
         # ── Filters ───────────────────────────────────────────────────────────
         if allowed_project_ids is not None:
@@ -80,6 +100,16 @@ class TaskRepository:
             q = q.filter(Project.team_id == team_id)
         if department_id is not None:
             q = q.filter(Team.department_id == department_id)
+        if department:
+            q = q.filter(Department.name == department)
+        if assignee:
+            from app.db.models.user import User
+            q = q.filter(or_(User.full_name == assignee, User.username == assignee))
+        if team:
+            q = q.filter(Team.name == team)
+        if sprint:
+            from app.db.models.sprint import Sprint
+            q = q.filter(Sprint.name == sprint)
         if quarter:
             q = q.filter(Task.quarter == quarter)
         if risk_level:
