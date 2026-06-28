@@ -13,8 +13,15 @@ class TestCreateTask:
         assert task["status"] == "Todo"
         assert task["priority"] == "Medium"
         assert "id" in task
+        assert "number" in task
+        assert "key" in task
         assert "created_at" in task
         assert "updated_at" in task
+
+    def test_create_assigns_issue_number_and_key_for_project(self, client, make_task):
+        task = make_task(title="Issue Identity")
+        assert task["number"] == 1
+        assert task["key"] == "PRJ-1"
 
     def test_create_persists_to_db(self, client, make_task):
         task = make_task(title="Persist Me")
