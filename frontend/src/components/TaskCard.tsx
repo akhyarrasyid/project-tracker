@@ -111,12 +111,21 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
           <span className="text-[9px] bg-slate-50 text-slate-500 border border-slate-100 px-1 py-0.2 rounded font-bold shrink-0">
             ⚡ {task.story_points}
           </span>
-          <span
-            className="w-4.5 h-4.5 rounded-full bg-blue-105 text-blue-700 flex items-center justify-center font-bold text-[8px] uppercase shrink-0"
-            title={task.assignee}
-          >
-            {task.assignee.substring(0, 2)}
-          </span>
+          {task.assignee ? (
+            <span
+              className="w-4.5 h-4.5 rounded-full bg-blue-105 text-blue-700 flex items-center justify-center font-bold text-[8px] uppercase shrink-0"
+              title={task.assignee}
+            >
+              {task.assignee.substring(0, 2)}
+            </span>
+          ) : (
+            <span
+              className="w-4.5 h-4.5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[8px] uppercase shrink-0"
+              title="Unassigned"
+            >
+              --
+            </span>
+          )}
         </div>
       </div>
     </div>
