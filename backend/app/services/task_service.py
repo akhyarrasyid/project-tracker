@@ -9,6 +9,11 @@ from app.db.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.activity_service import ActivityLoggerService
 
+STATUS_IN_PROGRESS = "In Progress"
+STATUS_DONE = "Done"
+STATUS_BLOCKED = "Blocked"
+STATUS_REVIEW = "Review"
+
 
 class TaskService:
     @staticmethod
@@ -68,26 +73,58 @@ class TaskService:
             )
 
     @staticmethod
+    def _sync_status_and_progress_create(data: dict, creator_id: int) -> None:
+        if data["status"] == STATUS_DONE:
+            data["progress_percentage"] = 100
+            data["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
+            data["completed_by_id"] = creator_id
+        elif data["progress_percentage"] == 100:
+            data["status"] = STATUS_DONE
+            data["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
+            data["completed_by_id"] = creator_id
+        elif 0 < data["progress_percentage"] < 100 and data["status"] not in (
+            STATUS_IN_PROGRESS,
+            STATUS_REVIEW,
+            STATUS_BLOCKED,
+        ):
+            data["status"] = STATUS_IN_PROGRESS
+
+    @staticmethod
+    def _sync_status_and_progress_update(updates: dict, task: Task, actor_id: int) -> None:
+        old_status = task.status
+        new_status = updates.get("status", old_status)
+        new_progress = updates.get("progress_percentage", task.progress_percentage)
+
+        # Auto sync: status Done -> progress 100%
+        if "status" in updates and new_status == STATUS_DONE:
+            updates["progress_percentage"] = 100
+            updates["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
+            updates["completed_by_id"] = actor_id
+
+        # Auto sync: progress 100% -> status Done
+        elif "progress_percentage" in updates and new_progress == 100:
+            updates["status"] = STATUS_DONE
+            updates["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
+            updates["completed_by_id"] = actor_id
+
+        # Auto sync: 1-99% progress -> status In Progress/Review
+        elif "progress_percentage" in updates and 0 < new_progress < 100:
+            if new_status not in (STATUS_IN_PROGRESS, STATUS_REVIEW, STATUS_BLOCKED):
+                updates["status"] = STATUS_IN_PROGRESS
+
+        # Clean completed fields if transitioned back from Done
+        if "status" in updates and new_status != STATUS_DONE and old_status == STATUS_DONE:
+            updates["completed_at"] = None
+            updates["completed_by_id"] = None
+
+    @staticmethod
     def create_task(
         db: Session, project_id: int, task_in: TaskCreate, creator_id: int
     ) -> Task:
         data = task_in.model_dump()
 
         # Enforce progress sync on creation
-        if data["status"] == "Done":
-            data["progress_percentage"] = 100
-            data["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
-            data["completed_by_id"] = creator_id
-        elif data["progress_percentage"] == 100:
-            data["status"] = "Done"
-            data["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
-            data["completed_by_id"] = creator_id
-        elif 0 < data["progress_percentage"] < 100 and data["status"] not in (
-            "In Progress",
-            "Review",
-            "Blocked",
-        ):
-            data["status"] = "In Progress"
+        TaskService._sync_status_and_progress_create(data, creator_id)
 
         task = Task(project_id=project_id, created_by_id=creator_id, **data)
         db.add(task)
@@ -118,7 +155,6 @@ class TaskService:
 
         # Handle progress and status synchronization
         new_status = updates.get("status", task.status)
-        new_progress = updates.get("progress_percentage", task.progress_percentage)
 
         # Check if actor is admin
         actor = db.query(User).filter(User.id == actor_id).first()
@@ -130,27 +166,7 @@ class TaskService:
                 db, task, new_status, actor_id, is_admin=is_admin
             )
 
-        # Auto sync: status Done -> progress 100%
-        if "status" in updates and new_status == "Done":
-            updates["progress_percentage"] = 100
-            updates["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
-            updates["completed_by_id"] = actor_id
-
-        # Auto sync: progress 100% -> status Done
-        elif "progress_percentage" in updates and new_progress == 100:
-            updates["status"] = "Done"
-            updates["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
-            updates["completed_by_id"] = actor_id
-
-        # Auto sync: 1-99% progress -> status In Progress/Review
-        elif "progress_percentage" in updates and 0 < new_progress < 100:
-            if new_status not in ("In Progress", "Review", "Blocked"):
-                updates["status"] = "In Progress"
-
-        # Clean completed fields if transitioned back from Done
-        if "status" in updates and new_status != "Done" and old_status == "Done":
-            updates["completed_at"] = None
-            updates["completed_by_id"] = None
+        TaskService._sync_status_and_progress_update(updates, task, actor_id)
 
         # Apply updates
         for field, value in updates.items():
