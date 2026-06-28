@@ -13,3 +13,10 @@ wheels/
 *.db
 *.sqlite
 *.sqlite3
+
+# Test coverage & debug scripts
+.coverage
+coverage.xml
+trace_conftest.py
+trace_import.py
+list_tables.py

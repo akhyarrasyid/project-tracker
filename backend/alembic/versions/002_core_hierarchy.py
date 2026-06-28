@@ -4,20 +4,20 @@ Revision ID: 002_core_hierarchy
 Revises: 001_initial_tasks
 Create Date: 2026-06-28 08:30:00.000000
 """
-from typing import Sequence, Union, Dict
+
 import datetime
-from alembic import op
+from typing import Dict, Sequence, Union
+
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-from passlib.context import CryptContext
+import bcrypt
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "002_core_hierarchy"
 down_revision: Union[str, None] = "001_initial_tasks"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def upgrade() -> None:
@@ -27,10 +27,20 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name")
+        sa.UniqueConstraint("name"),
     )
     op.create_index("ix_departments_name", "departments", ["name"], unique=True)
 
@@ -40,11 +50,23 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("department_id", sa.Integer(), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.ForeignKeyConstraint(["department_id"], ["departments.id"], ondelete="RESTRICT"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["department_id"], ["departments.id"], ondelete="RESTRICT"
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name", "department_id", name="uq_team_name_department")
+        sa.UniqueConstraint("name", "department_id", name="uq_team_name_department"),
     )
 
     op.create_table(
@@ -54,14 +76,26 @@ def upgrade() -> None:
         sa.Column("username", sa.String(length=255), nullable=False),
         sa.Column("full_name", sa.String(length=255), nullable=False),
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
-        sa.Column("role", sa.String(length=50), nullable=False, server_default="worker"),
+        sa.Column(
+            "role", sa.String(length=50), nullable=False, server_default="worker"
+        ),
         sa.Column("team_id", sa.Integer(), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["team_id"], ["teams.id"], ondelete="RESTRICT"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
     op.create_index("ix_users_username", "users", ["username"], unique=True)
@@ -73,15 +107,27 @@ def upgrade() -> None:
         sa.Column("key", sa.String(length=10), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("team_id", sa.Integer(), nullable=False),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default="ACTIVE"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "status", sa.String(length=50), nullable=False, server_default="ACTIVE"
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_by_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(["team_id"], ["teams.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["deleted_by_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("key")
+        sa.UniqueConstraint("key"),
     )
     op.create_index("ix_projects_key", "projects", ["key"], unique=True)
 
@@ -90,12 +136,22 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("project_role", sa.String(length=50), nullable=False, server_default="MEMBER"),
-        sa.Column("joined_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "project_role",
+            sa.String(length=50),
+            nullable=False,
+            server_default="MEMBER",
+        ),
+        sa.Column(
+            "joined_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("project_id", "user_id", name="uq_project_member")
+        sa.UniqueConstraint("project_id", "user_id", name="uq_project_member"),
     )
 
     op.create_table(
@@ -106,9 +162,11 @@ def upgrade() -> None:
         sa.Column("goal", sa.Text(), nullable=True),
         sa.Column("start_date", sa.DateTime(timezone=True), nullable=False),
         sa.Column("end_date", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default="PLANNED"),
+        sa.Column(
+            "status", sa.String(length=50), nullable=False, server_default="PLANNED"
+        ),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
@@ -118,7 +176,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
@@ -128,15 +186,25 @@ def upgrade() -> None:
         sa.Column("author_id", sa.Integer(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("parent_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_by_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(["author_id"], ["users.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["parent_id"], ["comments.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["deleted_by_id"], ["users.id"], ondelete="SET NULL"),
         # Foreign key for task_id will be added after tasks table update
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
@@ -148,30 +216,42 @@ def upgrade() -> None:
         sa.Column("storage_path", sa.String(length=512), nullable=False),
         sa.Column("mime_type", sa.String(length=100), nullable=False),
         sa.Column("size", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_by_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(["uploaded_by_id"], ["users.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["deleted_by_id"], ["users.id"], ondelete="SET NULL"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
         "watchers",
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("task_id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("user_id", "task_id")
+        sa.PrimaryKeyConstraint("user_id", "task_id"),
     )
 
     op.create_table(
         "labels",
         sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
         sa.Column("name", sa.String(length=100), nullable=False),
-        sa.Column("color", sa.String(length=7), nullable=False, server_default="#6B7280"),
+        sa.Column(
+            "color", sa.String(length=7), nullable=False, server_default="#6B7280"
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name")
+        sa.UniqueConstraint("name"),
     )
 
     op.create_table(
@@ -179,7 +259,7 @@ def upgrade() -> None:
         sa.Column("task_id", sa.Integer(), nullable=False),
         sa.Column("label_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["label_id"], ["labels.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("task_id", "label_id")
+        sa.PrimaryKeyConstraint("task_id", "label_id"),
     )
 
     op.create_table(
@@ -191,10 +271,15 @@ def upgrade() -> None:
         sa.Column("entity_type", sa.String(length=50), nullable=False),
         sa.Column("entity_id", sa.Integer(), nullable=False),
         sa.Column("is_read", sa.Boolean(), nullable=False, server_default="false"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["actor_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["recipient_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     op.create_table(
@@ -207,10 +292,15 @@ def upgrade() -> None:
         sa.Column("field", sa.String(length=100), nullable=True),
         sa.Column("old_value", sa.Text(), nullable=True),
         sa.Column("new_value", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["actor_id"], ["users.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"], ondelete="SET NULL"),
-        sa.PrimaryKeyConstraint("id")
+        sa.PrimaryKeyConstraint("id"),
     )
 
     # 2. Add temporary nullable columns to tasks for migration
@@ -221,26 +311,30 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("assignee_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("created_by_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("completed_by_id", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(
+            sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True)
+        )
         batch_op.add_column(sa.Column("deleted_by_id", sa.Integer(), nullable=True))
 
     # 3. Data Migration
     connection = op.get_bind()
-    
+
     # Check if there are tasks to migrate
-    tasks_raw = connection.execute(sa.text("SELECT id, department, team, assignee, created_by, sprint FROM tasks")).fetchall()
-    
+    tasks_raw = connection.execute(
+        sa.text("SELECT id, department, team, assignee, created_by, sprint FROM tasks")
+    ).fetchall()
+
     # If DB is empty (like in tests), we pre-seed default records
     departments_to_insert = set()
-    teams_to_insert = set() # (team_name, department_name)
-    users_to_insert = set() # full_name
-    
+    teams_to_insert = set()  # (team_name, department_name)
+    users_to_insert = set()  # full_name
+
     for t in tasks_raw:
         dept = t[1] or "Engineering"
         team = t[2] or "Backend Team"
         assignee = t[3]
         creator = t[4] or "admin"
-        
+
         departments_to_insert.add(dept)
         teams_to_insert.add((team, dept))
         if assignee:
@@ -260,10 +354,14 @@ def upgrade() -> None:
     dept_ids: Dict[str, int] = {}
     for dept in departments_to_insert:
         connection.execute(
-            sa.text("INSERT INTO departments (name) VALUES (:name) ON CONFLICT(name) DO NOTHING"),
-            {"name": dept}
+            sa.text(
+                "INSERT INTO departments (name) VALUES (:name) ON CONFLICT(name) DO NOTHING"
+            ),
+            {"name": dept},
         )
-        res = connection.execute(sa.text("SELECT id FROM departments WHERE name = :name"), {"name": dept}).fetchone()
+        res = connection.execute(
+            sa.text("SELECT id FROM departments WHERE name = :name"), {"name": dept}
+        ).fetchone()
         dept_ids[dept] = res[0]
 
     # Insert Teams
@@ -271,19 +369,23 @@ def upgrade() -> None:
     for team, dept in teams_to_insert:
         dept_id = dept_ids[dept]
         connection.execute(
-            sa.text("INSERT INTO teams (name, department_id) VALUES (:name, :dept_id) ON CONFLICT DO NOTHING"),
-            {"name": team, "dept_id": dept_id}
+            sa.text(
+                "INSERT INTO teams (name, department_id) VALUES (:name, :dept_id) ON CONFLICT DO NOTHING"
+            ),
+            {"name": team, "dept_id": dept_id},
         )
         res = connection.execute(
-            sa.text("SELECT id FROM teams WHERE name = :name AND department_id = :dept_id"),
-            {"name": team, "dept_id": dept_id}
+            sa.text(
+                "SELECT id FROM teams WHERE name = :name AND department_id = :dept_id"
+            ),
+            {"name": team, "dept_id": dept_id},
         ).fetchone()
         team_ids[team] = res[0]
 
     # Insert Users
     user_ids: Dict[str, int] = {}
-    hashed_pwd = pwd_context.hash("password123")
-    
+    hashed_pwd = bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode("utf-8")
+
     # Ensure team for default users
     default_team_id = list(team_ids.values())[0]
 
@@ -291,7 +393,7 @@ def upgrade() -> None:
         username = user_name.replace(" ", ".").lower()
         email = f"{username}@tracker.com"
         role = "admin" if "admin" in username else "worker"
-        
+
         # Try to find corresponding team_id from the user's tasks
         user_team_id = default_team_id
         for t in tasks_raw:
@@ -299,16 +401,26 @@ def upgrade() -> None:
                 if t[2] in team_ids:
                     user_team_id = team_ids[t[2]]
                     break
-        
+
         connection.execute(
             sa.text(
                 "INSERT INTO users (email, username, full_name, hashed_password, role, team_id, is_active) "
                 "VALUES (:email, :username, :full_name, :hashed, :role, :team_id, true) "
                 "ON CONFLICT(email) DO NOTHING"
             ),
-            {"email": email, "username": username, "full_name": user_name, "hashed": hashed_pwd, "role": role, "team_id": user_team_id}
+            {
+                "email": email,
+                "username": username,
+                "full_name": user_name,
+                "hashed": hashed_pwd,
+                "role": role,
+                "team_id": user_team_id,
+            },
         )
-        res = connection.execute(sa.text("SELECT id FROM users WHERE username = :username"), {"username": username}).fetchone()
+        res = connection.execute(
+            sa.text("SELECT id FROM users WHERE username = :username"),
+            {"username": username},
+        ).fetchone()
         user_ids[user_name] = res[0]
 
     # Ensure admin user exists with email admin@tracker.com
@@ -319,9 +431,11 @@ def upgrade() -> None:
                 "VALUES ('admin@tracker.com', 'admin', 'Administrator', :hashed, 'admin', :team_id, true) "
                 "ON CONFLICT(email) DO NOTHING"
             ),
-            {"hashed": hashed_pwd, "team_id": default_team_id}
+            {"hashed": hashed_pwd, "team_id": default_team_id},
         )
-        res = connection.execute(sa.text("SELECT id FROM users WHERE username = 'admin'")).fetchone()
+        res = connection.execute(
+            sa.text("SELECT id FROM users WHERE username = 'admin'")
+        ).fetchone()
         user_ids["admin"] = res[0]
 
     # Ensure worker user exists with email worker@tracker.com
@@ -332,23 +446,27 @@ def upgrade() -> None:
                 "VALUES ('worker@tracker.com', 'worker', 'Worker User', :hashed, 'worker', :team_id, true) "
                 "ON CONFLICT(email) DO NOTHING"
             ),
-            {"hashed": hashed_pwd, "team_id": default_team_id}
+            {"hashed": hashed_pwd, "team_id": default_team_id},
         )
-        res = connection.execute(sa.text("SELECT id FROM users WHERE username = 'worker'")).fetchone()
+        res = connection.execute(
+            sa.text("SELECT id FROM users WHERE username = 'worker'")
+        ).fetchone()
         user_ids["worker"] = res[0]
 
     # Insert Projects
-    project_ids: Dict[int, int] = {} # team_id -> project_id
+    project_ids: Dict[int, int] = {}  # team_id -> project_id
     for team_name, t_id in team_ids.items():
         key_base = "".join([w[0] for w in team_name.split() if w.isalnum()]).upper()[:4]
         if not key_base:
             key_base = "PRJ"
-        
+
         # Ensure unique key
         key = key_base
         idx = 1
         while True:
-            exists = connection.execute(sa.text("SELECT id FROM projects WHERE key = :key"), {"key": key}).fetchone()
+            exists = connection.execute(
+                sa.text("SELECT id FROM projects WHERE key = :key"), {"key": key}
+            ).fetchone()
             if not exists:
                 break
             key = f"{key_base}{idx}"
@@ -360,15 +478,24 @@ def upgrade() -> None:
                 "VALUES (:name, :key, :desc, :team_id, 'ACTIVE') "
                 "ON CONFLICT(key) DO NOTHING"
             ),
-            {"name": f"{team_name} Project", "key": key, "desc": f"Workspace for {team_name}", "team_id": t_id}
+            {
+                "name": f"{team_name} Project",
+                "key": key,
+                "desc": f"Workspace for {team_name}",
+                "team_id": t_id,
+            },
         )
-        res = connection.execute(sa.text("SELECT id FROM projects WHERE key = :key"), {"key": key}).fetchone()
+        res = connection.execute(
+            sa.text("SELECT id FROM projects WHERE key = :key"), {"key": key}
+        ).fetchone()
         project_ids[t_id] = res[0]
 
         # Insert project members (admin and team users)
         for u_name, u_id in user_ids.items():
             # Check user's team
-            u_team = connection.execute(sa.text("SELECT team_id FROM users WHERE id = :id"), {"id": u_id}).fetchone()
+            u_team = connection.execute(
+                sa.text("SELECT team_id FROM users WHERE id = :id"), {"id": u_id}
+            ).fetchone()
             if u_team and (u_team[0] == t_id or u_name == "admin"):
                 connection.execute(
                     sa.text(
@@ -376,11 +503,15 @@ def upgrade() -> None:
                         "VALUES (:project_id, :user_id, :role) "
                         "ON CONFLICT DO NOTHING"
                     ),
-                    {"project_id": res[0], "user_id": u_id, "role": "OWNER" if u_name == "admin" else "MEMBER"}
+                    {
+                        "project_id": res[0],
+                        "user_id": u_id,
+                        "role": "OWNER" if u_name == "admin" else "MEMBER",
+                    },
                 )
 
     # Insert Sprints
-    sprint_ids: Dict[str, int] = {} # (project_id, name) -> sprint_id
+    sprint_ids: Dict[str, int] = {}  # (project_id, name) -> sprint_id
     for t in tasks_raw:
         sprint_name = t[5]
         if sprint_name:
@@ -388,7 +519,7 @@ def upgrade() -> None:
             t_id = team_ids[team_name]
             p_id = project_ids[t_id]
             key_combo = f"{p_id}:{sprint_name}"
-            
+
             if key_combo not in sprint_ids:
                 start = datetime.datetime.now(datetime.timezone.utc)
                 end = start + datetime.timedelta(days=14)
@@ -397,11 +528,13 @@ def upgrade() -> None:
                         "INSERT INTO sprints (project_id, name, start_date, end_date, status) "
                         "VALUES (:p_id, :name, :start, :end, 'ACTIVE')"
                     ),
-                    {"p_id": p_id, "name": sprint_name, "start": start, "end": end}
+                    {"p_id": p_id, "name": sprint_name, "start": start, "end": end},
                 )
                 res = connection.execute(
-                    sa.text("SELECT id FROM sprints WHERE project_id = :p_id AND name = :name"),
-                    {"p_id": p_id, "name": sprint_name}
+                    sa.text(
+                        "SELECT id FROM sprints WHERE project_id = :p_id AND name = :name"
+                    ),
+                    {"p_id": p_id, "name": sprint_name},
                 ).fetchone()
                 sprint_ids[key_combo] = res[0]
 
@@ -415,21 +548,27 @@ def upgrade() -> None:
         old_assignee = t[3]
         old_creator = t[4]
         old_sprint = t[5]
-        
+
         p_id = project_ids.get(team_ids.get(old_team, 0), default_project_id)
         a_id = user_ids.get(old_assignee)
         c_id = user_ids.get(old_creator, default_user_id)
-        
+
         s_id = None
         if old_sprint:
             s_id = sprint_ids.get(f"{p_id}:{old_sprint}")
-            
+
         connection.execute(
             sa.text(
                 "UPDATE tasks SET project_id = :p_id, assignee_id = :a_id, created_by_id = :c_id, sprint_id = :s_id "
                 "WHERE id = :task_id"
             ),
-            {"p_id": p_id, "a_id": a_id, "c_id": c_id, "s_id": s_id, "task_id": task_id}
+            {
+                "p_id": p_id,
+                "a_id": a_id,
+                "c_id": c_id,
+                "s_id": s_id,
+                "task_id": task_id,
+            },
         )
 
     # If there are no tasks, make sure any newly created task can default
@@ -440,33 +579,65 @@ def upgrade() -> None:
     # Set default values for any tasks that somehow remained NULL.
     connection.execute(
         sa.text("UPDATE tasks SET project_id = :p_id WHERE project_id IS NULL"),
-        {"p_id": default_project_id}
+        {"p_id": default_project_id},
     )
     connection.execute(
         sa.text("UPDATE tasks SET created_by_id = :u_id WHERE created_by_id IS NULL"),
-        {"u_id": default_user_id}
+        {"u_id": default_user_id},
     )
 
     with op.batch_alter_table("tasks") as batch_op:
         batch_op.alter_column("project_id", nullable=False, existing_type=sa.Integer())
-        batch_op.alter_column("created_by_id", nullable=False, existing_type=sa.Integer())
-        
+        batch_op.alter_column(
+            "created_by_id", nullable=False, existing_type=sa.Integer()
+        )
+
         # Add foreign key constraints
-        batch_op.create_foreign_key("fk_tasks_project", "projects", ["project_id"], ["id"], ondelete="RESTRICT")
-        batch_op.create_foreign_key("fk_tasks_sprint", "sprints", ["sprint_id"], ["id"], ondelete="SET NULL")
-        batch_op.create_foreign_key("fk_tasks_epic", "epics", ["epic_id"], ["id"], ondelete="SET NULL")
-        batch_op.create_foreign_key("fk_tasks_assignee", "users", ["assignee_id"], ["id"], ondelete="SET NULL")
-        batch_op.create_foreign_key("fk_tasks_created_by", "users", ["created_by_id"], ["id"], ondelete="RESTRICT")
-        batch_op.create_foreign_key("fk_tasks_completed_by", "users", ["completed_by_id"], ["id"], ondelete="SET NULL")
-        batch_op.create_foreign_key("fk_tasks_deleted_by", "users", ["deleted_by_id"], ["id"], ondelete="SET NULL")
+        batch_op.create_foreign_key(
+            "fk_tasks_project", "projects", ["project_id"], ["id"], ondelete="RESTRICT"
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_sprint", "sprints", ["sprint_id"], ["id"], ondelete="SET NULL"
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_epic", "epics", ["epic_id"], ["id"], ondelete="SET NULL"
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_assignee", "users", ["assignee_id"], ["id"], ondelete="SET NULL"
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_created_by",
+            "users",
+            ["created_by_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_completed_by",
+            "users",
+            ["completed_by_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_foreign_key(
+            "fk_tasks_deleted_by",
+            "users",
+            ["deleted_by_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
 
     # Add comments task_id foreign key constraint now that tasks table has constraints
     with op.batch_alter_table("comments") as batch_op:
-        batch_op.create_foreign_key("fk_comments_task", "tasks", ["task_id"], ["id"], ondelete="CASCADE")
+        batch_op.create_foreign_key(
+            "fk_comments_task", "tasks", ["task_id"], ["id"], ondelete="CASCADE"
+        )
 
     # Add task_labels task_id foreign key constraint
     with op.batch_alter_table("task_labels") as batch_op:
-        batch_op.create_foreign_key("fk_task_labels_task", "tasks", ["task_id"], ["id"], ondelete="CASCADE")
+        batch_op.create_foreign_key(
+            "fk_task_labels_task", "tasks", ["task_id"], ["id"], ondelete="CASCADE"
+        )
 
     # 5. Remove obsolete columns from tasks
     with op.batch_alter_table("tasks") as batch_op:
@@ -478,6 +649,88 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Downgrade is not strictly supported for complex normalization migrations,
-    # but we can reconstruct a basic table structure for safety.
-    raise NotImplementedError("Downgrade from normalized schema is not supported.")
+    # 1. Remove foreign key constraints first
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.drop_constraint("fk_tasks_project", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_sprint", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_epic", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_assignee", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_created_by", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_completed_by", type_="foreignkey")
+        batch_op.drop_constraint("fk_tasks_deleted_by", type_="foreignkey")
+
+    with op.batch_alter_table("comments") as batch_op:
+        batch_op.drop_constraint("fk_comments_task", type_="foreignkey")
+
+    with op.batch_alter_table("task_labels") as batch_op:
+        batch_op.drop_constraint("fk_task_labels_task", type_="foreignkey")
+
+    # 2. Add back legacy columns to tasks table
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.add_column(sa.Column("department", sa.String(length=100), nullable=True))
+        batch_op.add_column(sa.Column("team", sa.String(length=100), nullable=True))
+        batch_op.add_column(sa.Column("assignee", sa.String(length=255), nullable=True))
+        batch_op.add_column(sa.Column("created_by", sa.String(length=255), nullable=True))
+        batch_op.add_column(sa.Column("sprint", sa.String(length=50), nullable=True))
+
+    # 3. Data Migration (Backwards)
+    connection = op.get_bind()
+    
+    # Query to map back the relationships
+    mapped_data = connection.execute(
+        sa.text(
+            "SELECT t.id, d.name as dept_name, tm.name as team_name, "
+            "u_assign.full_name as assignee_name, u_creator.full_name as creator_name, s.name as sprint_name "
+            "FROM tasks t "
+            "LEFT JOIN projects p ON t.project_id = p.id "
+            "LEFT JOIN teams tm ON p.team_id = tm.id "
+            "LEFT JOIN departments d ON tm.department_id = d.id "
+            "LEFT JOIN users u_assign ON t.assignee_id = u_assign.id "
+            "LEFT JOIN users u_creator ON t.created_by_id = u_creator.id "
+            "LEFT JOIN sprints s ON t.sprint_id = s.id"
+        )
+    ).fetchall()
+
+    for row in mapped_data:
+        connection.execute(
+            sa.text(
+                "UPDATE tasks SET department = :dept, team = :team, assignee = :assignee, "
+                "created_by = :creator, sprint = :sprint WHERE id = :task_id"
+            ),
+            {
+                "dept": row[1],
+                "team": row[2],
+                "assignee": row[3],
+                "creator": row[4],
+                "sprint": row[5],
+                "task_id": row[0],
+            }
+        )
+
+    # 4. Drop all the new tables
+    op.drop_table("activity_logs")
+    op.drop_table("notifications")
+    op.drop_table("task_labels")
+    op.drop_table("labels")
+    op.drop_table("watchers")
+    op.drop_table("attachments")
+    op.drop_table("comments")
+    op.drop_table("epics")
+    op.drop_table("sprints")
+    op.drop_table("project_members")
+    op.drop_table("projects")
+    op.drop_table("users")
+    op.drop_table("teams")
+    op.drop_table("departments")
+
+    # 5. Drop new columns from tasks table
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.drop_column("project_id")
+        batch_op.drop_column("sprint_id")
+        batch_op.drop_column("epic_id")
+        batch_op.drop_column("assignee_id")
+        batch_op.drop_column("created_by_id")
+        batch_op.drop_column("completed_by_id")
+        batch_op.drop_column("deleted_at")
+        batch_op.drop_column("deleted_by_id")
+
