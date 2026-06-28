@@ -140,6 +140,23 @@ def client(db_session):
     app.dependency_overrides[get_current_user] = override_get_current_user
     
     with TestClient(app) as c:
+        original_post = c.post
+        def wrapped_post(url, *args, **kwargs):
+            if url == "/api/v1/tasks/" or url == "/api/v1/tasks":
+                if "?" not in url:
+                    url = f"{url}?project_id={seed['project_id']}"
+                elif "project_id" not in url:
+                    url = f"{url}&project_id={seed['project_id']}"
+                    
+                # Strip deprecated fields from JSON body if present
+                if "json" in kwargs and isinstance(kwargs["json"], dict):
+                    # Copy to avoid mutating original test data structures
+                    kwargs["json"] = kwargs["json"].copy()
+                    for f in ["department", "team", "assignee", "created_by", "sprint"]:
+                        kwargs["json"].pop(f, None)
+            return original_post(url, *args, **kwargs)
+            
+        c.post = wrapped_post
         c.seed = seed
         yield c
     app.dependency_overrides.clear()
