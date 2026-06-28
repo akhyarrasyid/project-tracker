@@ -1,9 +1,10 @@
 import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 
 from app.db.models.activity_log import ActivityLog
+from app.db.models.project import Project
 from app.db.models.task import Task
 from app.db.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
@@ -17,6 +18,18 @@ STATUS_REVIEW = "Review"
 
 
 class TaskService:
+    @staticmethod
+    def _allocate_issue_number(db: Session, project_id: int) -> int:
+        project = (
+            db.query(Project)
+            .options(lazyload(Project.team))
+            .filter(Project.id == project_id, Project.deleted_at.is_(None))
+            .with_for_update()
+            .one()
+        )
+        project.issue_sequence += 1
+        return project.issue_sequence
+
     @staticmethod
     def get_last_non_blocked_status(db: Session, task_id: int) -> str:
         # Query activity logs for status changes
@@ -133,7 +146,13 @@ class TaskService:
         # Enforce progress sync on creation
         TaskService._sync_status_and_progress_create(data, creator_id)
 
-        task = Task(project_id=project_id, created_by_id=creator_id, **data)
+        issue_number = TaskService._allocate_issue_number(db, project_id)
+        task = Task(
+            project_id=project_id,
+            created_by_id=creator_id,
+            number=issue_number,
+            **data,
+        )
         db.add(task)
         if commit:
             db.commit()

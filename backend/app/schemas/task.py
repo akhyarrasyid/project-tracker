@@ -182,6 +182,9 @@ class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    number: int
+    key: Optional[str] = None
+    project_key: Optional[str] = None
     project_id: int
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None

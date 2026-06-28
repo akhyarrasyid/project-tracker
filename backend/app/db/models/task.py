@@ -60,6 +60,16 @@ class Task(Base):
     def sprint(self) -> Optional[str]:
         return self.sprint_relation.name if self.sprint_relation else None
 
+    @property
+    def project_key(self) -> Optional[str]:
+        return self.project.key if self.project else None
+
+    @property
+    def key(self) -> Optional[str]:
+        if self.project_key is None or self.number is None:
+            return None
+        return f"{self.project_key}-{self.number}"
+
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
@@ -75,6 +85,7 @@ class Task(Base):
     epic_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("epics.id", ondelete=ONDELETE_SET_NULL), nullable=True
     )
+    number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")

@@ -23,6 +23,9 @@ class Project(Base):
     team_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("teams.id", ondelete="RESTRICT"), nullable=False
     )
+    issue_sequence: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="ACTIVE")
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
