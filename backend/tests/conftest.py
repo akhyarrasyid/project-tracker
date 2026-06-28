@@ -2,24 +2,56 @@
 
 import os
 import sys
+import uuid
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # Ensure backend root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+TEST_SCHEMA = f"test_{uuid.uuid4().hex}"
+
+
+def _load_database_url() -> str:
+    env_database_url = os.environ.get("DATABASE_URL")
+    if env_database_url:
+        return env_database_url
+
+    project_root = Path(__file__).resolve().parents[2]
+    env_path = project_root / ".env"
+    if env_path.exists():
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key.strip() == "DATABASE_URL":
+                return value.strip()
+
+    raise RuntimeError("DATABASE_URL is required to run backend tests")
+
+
+DATABASE_URL = _load_database_url()
+os.environ["DATABASE_URL"] = DATABASE_URL
+os.environ["DATABASE_SCHEMA"] = TEST_SCHEMA
+
+bootstrap_engine = create_engine(DATABASE_URL)
+with bootstrap_engine.begin() as connection:
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{TEST_SCHEMA}"'))
+bootstrap_engine.dispose()
 
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
 # ── In-memory SQLite for tests ────────────────────────────────────────────────
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL,
+    connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -112,6 +144,15 @@ def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_schema():
+    yield
+    cleanup_engine = create_engine(DATABASE_URL)
+    with cleanup_engine.begin() as connection:
+        connection.execute(text(f'DROP SCHEMA IF EXISTS "{TEST_SCHEMA}" CASCADE'))
+    cleanup_engine.dispose()
 
 
 @pytest.fixture

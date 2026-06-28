@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     DATABASE_URL: str = "sqlite:///./tasks.db"
+    DATABASE_SCHEMA: str | None = None
     CORS_ORIGINS: list[str] = ["*"]
     APP_TITLE: str = "Project Tracker API"
     APP_VERSION: str = "1.0.0"
