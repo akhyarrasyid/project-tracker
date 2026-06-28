@@ -304,7 +304,9 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
         for d in valid_data:
             if d.get("id") in existing_ids:
                 continue
-            to_insert.append(_prepare_task_record(d, default_project, default_team, ctx))
+            to_insert.append(
+                _prepare_task_record(d, default_project, default_team, ctx)
+            )
 
         if not to_insert:
             log.info("All records already exist — nothing to insert.")
@@ -313,7 +315,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
         log.info(f"Inserting {len(to_insert)} records ...")
         db.add_all(to_insert)
         db.commit()
-        
+
         # Reset ID sequences to max ID + 1 to prevent sequence out-of-sync insertion conflicts
         _reset_sequences(db)
         log.info(f"✓ Seeding complete — {len(to_insert)} records inserted.")
@@ -327,6 +329,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
 def _reset_sequences(db: Session) -> None:
     from sqlalchemy import text
+
     tables = ["tasks", "users", "departments", "teams", "projects", "sprints"]
     for t in tables:
         try:
