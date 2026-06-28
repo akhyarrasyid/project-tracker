@@ -18,6 +18,9 @@ from sqlalchemy.types import JSON
 
 from app.db.base import Base
 
+ONDELETE_SET_NULL = "SET NULL"
+USERS_ID_FK = "users.id"
+
 
 class Task(Base):
     """Task aggregate root — evolved with normalization and project association."""
@@ -67,10 +70,10 @@ class Task(Base):
         index=True,
     )
     sprint_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("sprints.id", ondelete=ONDELETE_SET_NULL), nullable=True
     )
     epic_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("epics.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("epics.id", ondelete=ONDELETE_SET_NULL), nullable=True
     )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -85,10 +88,10 @@ class Task(Base):
     )
 
     assignee_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey(USERS_ID_FK, ondelete=ONDELETE_SET_NULL), nullable=True
     )
     created_by_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+        Integer, ForeignKey(USERS_ID_FK, ondelete="RESTRICT"), nullable=False
     )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
@@ -109,7 +112,7 @@ class Task(Base):
         DateTime(timezone=True), nullable=True
     )
     completed_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey(USERS_ID_FK, ondelete=ONDELETE_SET_NULL), nullable=True
     )
 
     story_points: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
@@ -134,7 +137,7 @@ class Task(Base):
         DateTime(timezone=True), nullable=True
     )
     deleted_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey(USERS_ID_FK, ondelete=ONDELETE_SET_NULL), nullable=True
     )
 
     __table_args__ = (
