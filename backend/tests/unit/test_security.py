@@ -96,12 +96,11 @@ def test_check_project_access_insufficient_permissions(db_session):
     db_session.commit()
 
     # Worker accesses with VIEWER role -> OK
-    assert (
-        security.check_project_access(
-            db_session, seed["worker"], proj.id, min_role="VIEWER"
-        )
-        == proj
+    res, mem = security.check_project_access(
+        db_session, seed["worker"], proj.id, min_role="VIEWER"
     )
+    assert res == proj
+    assert mem.project_role == "VIEWER"
 
     # Worker accesses with MEMBER (default min_role is MEMBER) -> forbidden
     with pytest.raises(HTTPException) as exc:

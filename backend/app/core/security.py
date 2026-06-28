@@ -1,6 +1,6 @@
 import datetime
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -108,7 +108,7 @@ def get_current_user(
 
 def check_project_access(
     db: Session, user: User, project_id: int, min_role: str = "MEMBER"
-) -> Project:
+) -> Tuple[Project, Optional[ProjectMember]]:
     # Admin bypasses all checks
     project = (
         db.query(Project)
@@ -121,7 +121,7 @@ def check_project_access(
         )
 
     if user.role == "admin":
-        return project
+        return project, None
 
     # Check project membership
     member = (
@@ -148,4 +148,4 @@ def check_project_access(
             detail="Insufficient project permissions",
         )
 
-    return project
+    return project, member
