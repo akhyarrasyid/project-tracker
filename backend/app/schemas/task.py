@@ -1,6 +1,5 @@
-"""Pydantic schemas for Task — all 26 fields from project_tracker_seed.json."""
+"""Pydantic schemas for Task — normalized project aggregate root."""
 import datetime
-import math
 from enum import Enum
 from typing import List, Optional
 
@@ -65,31 +64,24 @@ def _serialize_dt(dt: datetime.datetime) -> str:
 
 
 class TaskCreate(BaseModel):
-    """Schema for POST /api/v1/tasks — all required fields."""
+    """Schema for POST /api/v1/projects/{id}/tasks — all required fields."""
 
-    # Required
     title: str = Field(..., min_length=1, max_length=255)
-    description: str = Field(..., min_length=0)
+    description: str = Field(default="", min_length=0)
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
-    department: str = Field(..., min_length=1, max_length=100)
-    team: str = Field(..., min_length=1, max_length=100)
-    assignee: str = Field(..., min_length=1, max_length=100)
-    created_by: str = Field(..., min_length=1, max_length=50)
+    assignee_id: Optional[int] = None
+    sprint_id: Optional[int] = None
+    epic_id: Optional[int] = None
     due_date: datetime.date = Field(...)
-    story_points: int = Field(..., ge=1)
-    estimated_hours: int = Field(..., ge=1)
+    story_points: int = Field(default=1, ge=1)
+    estimated_hours: int = Field(default=8, ge=1)
     actual_hours: int = Field(default=0, ge=0)
     progress_percentage: int = Field(default=0, ge=0, le=100)
-    attachments_count: int = Field(default=0, ge=0)
-    comments_count: int = Field(default=0, ge=0)
-    watchers_count: int = Field(default=0, ge=0)
-    sprint: str = Field(..., min_length=1, max_length=20)
     quarter: Quarter = Quarter.Q1
     risk_level: RiskLevel = RiskLevel.LOW
     customer_impact: CustomerImpact = CustomerImpact.NONE
     sla_hours: int = Field(default=48)
-    completed_at: Optional[datetime.datetime] = None
     dependencies: List[int] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
 
@@ -132,20 +124,15 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
-    department: Optional[str] = Field(None, min_length=1, max_length=100)
-    team: Optional[str] = Field(None, min_length=1, max_length=100)
-    assignee: Optional[str] = Field(None, min_length=1, max_length=100)
-    created_by: Optional[str] = Field(None, min_length=1, max_length=50)
+    assignee_id: Optional[int] = None
+    sprint_id: Optional[int] = None
+    epic_id: Optional[int] = None
     due_date: Optional[datetime.date] = None
     completed_at: Optional[datetime.datetime] = None
     story_points: Optional[int] = None
     estimated_hours: Optional[int] = Field(None, ge=1)
     actual_hours: Optional[int] = Field(None, ge=0)
     progress_percentage: Optional[int] = Field(None, ge=0, le=100)
-    attachments_count: Optional[int] = Field(None, ge=0)
-    comments_count: Optional[int] = Field(None, ge=0)
-    watchers_count: Optional[int] = Field(None, ge=0)
-    sprint: Optional[str] = Field(None, min_length=1, max_length=20)
     quarter: Optional[Quarter] = None
     risk_level: Optional[RiskLevel] = None
     customer_impact: Optional[CustomerImpact] = None
@@ -186,23 +173,28 @@ class TaskUpdate(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    """Full task representation returned by the API — all 26 fields."""
+    """Full task representation returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    project_id: int
+    sprint_id: Optional[int] = None
+    epic_id: Optional[int] = None
     title: str
     description: str
     status: str
     priority: str
-    department: str
-    team: str
-    assignee: str
-    created_by: str
+    quarter: str
+    risk_level: str
+    customer_impact: str
+    assignee_id: Optional[int] = None
+    created_by_id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
     due_date: datetime.date
     completed_at: Optional[datetime.datetime] = None
+    completed_by_id: Optional[int] = None
     story_points: int
     estimated_hours: int
     actual_hours: int
@@ -210,10 +202,6 @@ class TaskResponse(BaseModel):
     attachments_count: int
     comments_count: int
     watchers_count: int
-    sprint: str
-    quarter: str
-    risk_level: str
-    customer_impact: str
     sla_hours: int
     dependencies: List[int]
     tags: List[str]
