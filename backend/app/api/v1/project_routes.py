@@ -1,6 +1,8 @@
+import datetime
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.core.security import check_project_access, get_current_user
@@ -9,7 +11,11 @@ from app.db.models.project_member import ProjectMember
 from app.db.models.task import Task
 from app.db.models.user import User
 from app.db.session import get_db
-from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectResponse,
+    ProjectSummaryResponse,
+)
 from app.schemas.task import TaskResponse
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -91,3 +97,64 @@ def get_project_tasks(
 ):
     check_project_access(db, current_user, id, min_role="VIEWER")
     return db.query(Task).filter(Task.project_id == id, Task.deleted_at.is_(None)).all()
+
+
+@router.get("/{id}/summary", response_model=ProjectSummaryResponse)
+def get_project_summary(
+    id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    check_project_access(db, current_user, id, min_role="VIEWER")
+
+    today = datetime.date.today()
+    at_risk_predicate = or_(
+        Task.risk_level == "High",
+        and_(Task.due_date <= today + datetime.timedelta(days=3), Task.status != "Done"),
+        and_(
+            Task.status == "Blocked",
+            Task.due_date <= today + datetime.timedelta(days=7),
+        ),
+    )
+
+    base_query = db.query(Task).filter(Task.project_id == id, Task.deleted_at.is_(None))
+    total_issues = base_query.count()
+    done_issues = base_query.filter(Task.status == "Done").count()
+    active_issues = base_query.filter(Task.status != "Done").count()
+    blocked_count = base_query.filter(Task.status == "Blocked").count()
+    overdue_count = base_query.filter(
+        Task.due_date < today,
+        Task.status != "Done",
+    ).count()
+    at_risk_count = base_query.filter(at_risk_predicate).count()
+
+    total_story_points = (
+        base_query.with_entities(func.coalesce(func.sum(Task.story_points), 0)).scalar()
+        or 0
+    )
+    done_story_points = (
+        base_query.filter(Task.status == "Done")
+        .with_entities(func.coalesce(func.sum(Task.story_points), 0))
+        .scalar()
+        or 0
+    )
+
+    issue_progress_percent = (
+        round((done_issues / total_issues) * 100) if total_issues else 0
+    )
+    point_progress_percent = (
+        round((done_story_points / total_story_points) * 100)
+        if total_story_points
+        else 0
+    )
+
+    return ProjectSummaryResponse(
+        total_issues=total_issues,
+        done_issues=done_issues,
+        active_issues=active_issues,
+        issue_progress_percent=issue_progress_percent,
+        point_progress_percent=point_progress_percent,
+        blocked_count=blocked_count,
+        overdue_count=overdue_count,
+        at_risk_count=at_risk_count,
+    )
