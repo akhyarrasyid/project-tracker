@@ -1,4 +1,5 @@
 """Shared FastAPI dependencies."""
+
 from app.db.repositories.task_repository import TaskRepository
 
 

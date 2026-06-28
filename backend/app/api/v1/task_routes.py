@@ -1,14 +1,15 @@
 """Task CRUD routes — GET/POST/PUT/DELETE with authentication and project authorization."""
+
 import math
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
-from app.core.security import get_current_user, check_project_access
-from app.db.models.user import User
+from app.core.security import check_project_access, get_current_user
 from app.db.models.project_member import ProjectMember
+from app.db.models.user import User
 from app.db.repositories.task_repository import TaskRepository
 from app.db.session import get_db
 from app.schemas.task import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
@@ -23,9 +24,15 @@ class TaskFilterParams:
     def __init__(
         self,
         page: Annotated[int, Query(ge=1, description="Page number (1-indexed)")] = 1,
-        size: Annotated[int, Query(ge=1, le=100, description="Items per page (max 100)")] = 20,
-        status: Annotated[Optional[str], Query(description="Filter by status (comma-separated)")] = None,
-        priority: Annotated[Optional[str], Query(description="Filter by priority (comma-separated)")] = None,
+        size: Annotated[
+            int, Query(ge=1, le=100, description="Items per page (max 100)")
+        ] = 20,
+        status: Annotated[
+            Optional[str], Query(description="Filter by status (comma-separated)")
+        ] = None,
+        priority: Annotated[
+            Optional[str], Query(description="Filter by priority (comma-separated)")
+        ] = None,
         project_id: Annotated[Optional[int], Query()] = None,
         sprint_id: Annotated[Optional[int], Query()] = None,
         assignee_id: Annotated[Optional[int], Query()] = None,
@@ -33,7 +40,9 @@ class TaskFilterParams:
         department_id: Annotated[Optional[int], Query()] = None,
         quarter: Annotated[Optional[str], Query()] = None,
         risk_level: Annotated[Optional[str], Query()] = None,
-        search: Annotated[Optional[str], Query(description="Search title and description")] = None,
+        search: Annotated[
+            Optional[str], Query(description="Search title and description")
+        ] = None,
         sort_by: Annotated[str, Query(description="Field to sort by")] = "created_at",
         sort_order: Annotated[str, Query(pattern="^(asc|desc)$")] = "desc",
         department: Annotated[Optional[str], Query()] = None,
@@ -63,6 +72,7 @@ class TaskFilterParams:
 
 # ── GET /tasks ────────────────────────────────────────────────────────────────
 
+
 @router.get("/", summary="List tasks")
 def list_tasks(
     db: Annotated[Session, Depends(get_db)],
@@ -72,19 +82,25 @@ def list_tasks(
     # PBAC: For workers, restrict queries to project members list unless project_id is specified (which we validate)
     allowed_project_ids = None
     if current_user.role != "admin":
-        user_memberships = db.query(ProjectMember).filter(ProjectMember.user_id == current_user.id).all()
+        user_memberships = (
+            db.query(ProjectMember)
+            .filter(ProjectMember.user_id == current_user.id)
+            .all()
+        )
         allowed_project_ids = [m.project_id for m in user_memberships]
-        
+
         # If user is not member of any project, return empty response
         if not allowed_project_ids:
-            return TaskListResponse(items=[], total=0, page=params.page, size=params.size, pages=0)
-            
+            return TaskListResponse(
+                items=[], total=0, page=params.page, size=params.size, pages=0
+            )
+
         # If project_id filter was specified, verify the user belongs to it
         if params.project_id is not None:
             if params.project_id not in allowed_project_ids:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have access to this project"
+                    detail="You do not have access to this project",
                 )
 
     # Let's perform list query
@@ -112,10 +128,18 @@ def list_tasks(
     )
 
     pages = math.ceil(total / params.size) if params.size else 0
-    return TaskListResponse(items=items, total=total, page=params.page, size=params.size, pages=pages)
+    items_response = [TaskResponse.model_validate(item) for item in items]
+    return TaskListResponse(
+        items=items_response,
+        total=total,
+        page=params.page,
+        size=params.size,
+        pages=pages,
+    )
 
 
 # ── GET /tasks/{id} ───────────────────────────────────────────────────────────
+
 
 @router.get("/{task_id}", summary="Get task by ID")
 def get_task(
@@ -126,13 +150,14 @@ def get_task(
     task = TaskRepository.get_by_id(db, task_id)
     if task is None:
         raise NotFoundException("Task", task_id)
-        
+
     # Project authorization
     check_project_access(db, current_user, task.project_id, min_role="VIEWER")
     return task
 
 
 # ── POST /tasks ───────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/",
@@ -152,6 +177,7 @@ def create_task(
 
 # ── PUT /tasks/{id} ───────────────────────────────────────────────────────────
 
+
 @router.put("/{task_id}", summary="Update a task")
 def update_task(
     task_id: int,
@@ -162,13 +188,14 @@ def update_task(
     task = TaskRepository.get_by_id(db, task_id)
     if task is None:
         raise NotFoundException("Task", task_id)
-        
+
     # Project authorization: must be member of project
     check_project_access(db, current_user, task.project_id, min_role="MEMBER")
     return TaskService.update_task(db, task, task_in, current_user.id)
 
 
 # ── DELETE /tasks/{id} ────────────────────────────────────────────────────────
+
 
 @router.delete(
     "/{task_id}",
@@ -183,7 +210,7 @@ def delete_task(
     task = TaskRepository.get_by_id(db, task_id)
     if task is None:
         raise NotFoundException("Task", task_id)
-        
+
     # Project authorization: must be member/owner of project
     check_project_access(db, current_user, task.project_id, min_role="MEMBER")
     TaskService.soft_delete_task(db, task, current_user.id)

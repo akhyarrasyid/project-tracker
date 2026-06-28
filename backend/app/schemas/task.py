@@ -1,4 +1,5 @@
 """Pydantic schemas for Task — normalized project aggregate root."""
+
 import datetime
 from enum import Enum
 from typing import List, Optional
@@ -6,7 +7,6 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from app.schemas.common import PaginatedResponse
-
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,9 @@ class TaskCreate(BaseModel):
     @classmethod
     def validate_story_points(cls, v: int) -> int:
         if v not in _VALID_STORY_POINTS:
-            raise ValueError(f"story_points must be one of {sorted(_VALID_STORY_POINTS)}")
+            raise ValueError(
+                f"story_points must be one of {sorted(_VALID_STORY_POINTS)}"
+            )
         return v
 
     @field_validator("sla_hours")
@@ -151,7 +153,9 @@ class TaskUpdate(BaseModel):
     @classmethod
     def validate_story_points(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and v not in _VALID_STORY_POINTS:
-            raise ValueError(f"story_points must be one of {sorted(_VALID_STORY_POINTS)}")
+            raise ValueError(
+                f"story_points must be one of {sorted(_VALID_STORY_POINTS)}"
+            )
         return v
 
     @field_validator("sla_hours")

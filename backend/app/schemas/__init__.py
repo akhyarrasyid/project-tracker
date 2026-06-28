@@ -1,10 +1,5 @@
-from app.schemas.task import (
-    TaskCreate,
-    TaskUpdate,
-    TaskResponse,
-    TaskListResponse,
-)
 from app.schemas.common import PaginatedResponse
+from app.schemas.task import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
 
 __all__ = [
     "TaskCreate",

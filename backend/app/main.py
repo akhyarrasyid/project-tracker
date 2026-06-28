@@ -1,4 +1,5 @@
 """FastAPI application factory."""
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,15 +7,13 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.exceptions import NotFoundException, ValidationException
+from app.db import models  # noqa: F401
 from app.db.base import Base
 from app.db.session import engine
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-
-    # Import models so SQLAlchemy knows about all tables before create_all
-    import app.db.models  # noqa: F401
 
     app = FastAPI(
         title=settings.APP_TITLE,
@@ -71,6 +70,7 @@ def create_app() -> FastAPI:
     async def readiness():
         try:
             from sqlalchemy import text
+
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
             return {"status": "ready"}
