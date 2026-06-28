@@ -413,7 +413,7 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-sm font-medium text-white bg-blue-650 hover:bg-blue-700 disabled:bg-blue-300 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 px-4 py-2 rounded-lg transition-colors cursor-pointer"
             >
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
