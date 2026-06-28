@@ -16,6 +16,8 @@ export type CustomerImpact = "None" | "Low" | "Medium" | "High" | "Internal";
 
 export interface Task {
   id: number;
+  project_id?: number;
+  assignee_id?: number | null;
   title: string;
   description: string;
   status: TaskStatus;

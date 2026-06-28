@@ -9,6 +9,7 @@ import { TaskTaskList } from "./components/TaskTaskList";
 import { LoginPage } from "./components/LoginPage";
 import { ProjectSidebar } from "./components/ProjectSidebar";
 import { Dashboard } from "./components/Dashboard";
+import { ImportCsvModal } from "./components/ImportCsvModal";
 import { metaApi } from "./api/meta";
 import type { Task } from "./types/task";
 import type { ProjectMeta } from "./types/meta";
@@ -21,6 +22,7 @@ function AppContent() {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [activeTab, setActiveTab] = useState<"board" | "list" | "calendar">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Hook handles project filtering, task operations, and pagination automatically
   const {
@@ -124,6 +126,15 @@ function AppContent() {
                       {activeProject.key}
                     </span>
                   )}
+                  <button
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="ml-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2.5 py-1 rounded-full transition-all duration-200 cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Impor CSV
+                  </button>
                 </div>
 
                 {/* Centered Tabs */}
@@ -134,7 +145,7 @@ function AppContent() {
                       onClick={() => setActiveTab(tab)}
                       className={`h-full px-3 text-xs font-bold uppercase tracking-wider relative transition-all duration-200 cursor-pointer ${
                         activeTab === tab
-                          ? "text-blue-650"
+                          ? "text-blue-600"
                           : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
@@ -247,6 +258,13 @@ function AppContent() {
           onClose={() => setSelectedTask(null)}
         />
       )}
+
+      {/* CSV Import Modal */}
+      <ImportCsvModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={refetch}
+      />
     </div>
   );
 }
