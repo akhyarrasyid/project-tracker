@@ -1,21 +1,23 @@
 import datetime
-from typing import Optional, List
+from typing import List, Optional
+
 from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     SmallInteger,
     String,
     Text,
-    ForeignKey,
-    func
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
+
 
 class Task(Base):
     """Task aggregate root — evolved with normalization and project association."""
@@ -23,8 +25,12 @@ class Task(Base):
     __tablename__ = "tasks"
 
     project = relationship("Project", foreign_keys="Task.project_id", lazy="joined")
-    sprint_relation = relationship("Sprint", foreign_keys="Task.sprint_id", lazy="joined")
-    assignee_relation = relationship("User", foreign_keys="Task.assignee_id", lazy="joined")
+    sprint_relation = relationship(
+        "Sprint", foreign_keys="Task.sprint_id", lazy="joined"
+    )
+    assignee_relation = relationship(
+        "User", foreign_keys="Task.assignee_id", lazy="joined"
+    )
     creator = relationship("User", foreign_keys="Task.created_by_id", lazy="joined")
 
     @property
@@ -51,22 +57,20 @@ class Task(Base):
     def sprint(self) -> Optional[str]:
         return self.sprint_relation.name if self.sprint_relation else None
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
     project_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("projects.id", ondelete="RESTRICT"),
         nullable=False,
-        index=True
+        index=True,
     )
     sprint_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey("sprints.id", ondelete="SET NULL"),
-        nullable=True
+        Integer, ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True
     )
     epic_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey("epics.id", ondelete="SET NULL"),
-        nullable=True
+        Integer, ForeignKey("epics.id", ondelete="SET NULL"), nullable=True
     )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -76,49 +80,48 @@ class Task(Base):
     priority: Mapped[str] = mapped_column(String(50), nullable=False, default="Medium")
     quarter: Mapped[str] = mapped_column(String(5), nullable=False, default="Q1")
     risk_level: Mapped[str] = mapped_column(String(10), nullable=False, default="Low")
-    customer_impact: Mapped[str] = mapped_column(String(20), nullable=False, default="None")
+    customer_impact: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="None"
+    )
 
     assignee_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_by_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.datetime.now(datetime.timezone.utc),
-        server_default=func.now()
+        server_default=func.now(),
     )
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.datetime.now(datetime.timezone.utc),
         server_default=func.now(),
-        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc)
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
     )
     due_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )
     completed_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
     story_points: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     estimated_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=8)
     actual_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    progress_percentage: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    progress_percentage: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0
+    )
 
-    attachments_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    attachments_count: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0
+    )
     comments_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     watchers_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
 
@@ -128,13 +131,10 @@ class Task(Base):
     tags: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
 
     deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True
+        DateTime(timezone=True), nullable=True
     )
     deleted_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
     __table_args__ = (
