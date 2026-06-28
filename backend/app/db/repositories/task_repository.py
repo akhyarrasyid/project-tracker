@@ -49,6 +49,7 @@ class TaskRepository:
         quarter: Optional[str] = None,
         risk_level: Optional[str] = None,
         search: Optional[str] = None,
+        allowed_project_ids: Optional[List[int]] = None,
         **kwargs,
     ) -> Tuple[List[Task], int]:
         """Return (items, total) with optional filtering, search and pagination."""
@@ -61,6 +62,8 @@ class TaskRepository:
             q = q.join(Team, Project.team_id == Team.id)
 
         # ── Filters ───────────────────────────────────────────────────────────
+        if allowed_project_ids is not None:
+            q = q.filter(Task.project_id.in_(allowed_project_ids))
         if status:
             statuses = [s.strip() for s in status.split(",")]
             q = q.filter(Task.status.in_(statuses))
