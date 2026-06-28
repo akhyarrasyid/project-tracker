@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.task import Task
 from app.db.models.activity_log import ActivityLog
+from app.db.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskStatus
 from app.services.activity_service import ActivityLoggerService
 
@@ -24,8 +25,11 @@ class TaskService:
 
     @staticmethod
     def validate_and_apply_status_transition(
-        db: Session, task: Task, new_status: str, actor_id: int
+        db: Session, task: Task, new_status: str, actor_id: int, is_admin: bool = False
     ) -> None:
+        if is_admin:
+            return
+
         old_status = task.status
         if old_status == new_status:
             return
@@ -106,9 +110,13 @@ class TaskService:
         new_status = updates.get("status", task.status)
         new_progress = updates.get("progress_percentage", task.progress_percentage)
 
+        # Check if actor is admin
+        actor = db.query(User).filter(User.id == actor_id).first()
+        is_admin = actor.role == "admin" if actor else False
+
         # Enforce transitions
         if "status" in updates:
-            TaskService.validate_and_apply_status_transition(db, task, new_status, actor_id)
+            TaskService.validate_and_apply_status_transition(db, task, new_status, actor_id, is_admin=is_admin)
 
         # Auto sync: status Done -> progress 100%
         if "status" in updates and new_status == "Done":
