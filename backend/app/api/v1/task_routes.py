@@ -205,14 +205,12 @@ def import_template(
     if not project:
         project = db.query(Project).filter(Project.deleted_at.is_(None)).first()
 
-    proj_id = str(project.id) if project else ""
     proj_key = project.key if project else "FT"
 
     user = db.query(User).filter(User.deleted_at.is_(None)).first()
     user_email = user.email if user else "worker@example.com"
 
     headers = [
-        "project_id",
         "project_key",
         "title",
         "description",
@@ -225,7 +223,6 @@ def import_template(
         "tags",
     ]
     sample_row = [
-        proj_id,
         proj_key,
         "Implementasi Fitur Baru",
         "Deskripsi detail tugas baru",
@@ -269,13 +266,13 @@ async def import_csv(
     csv_file = io.StringIO(csv_text)
     reader = csv.DictReader(csv_file)
 
-    expected_headers = {"project_id", "project_key", "title"}
-    if not reader.fieldnames or not expected_headers.intersection(
+    expected_headers = {"project_key", "title"}
+    if not reader.fieldnames or not expected_headers.issubset(
         set(reader.fieldnames)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Header CSV tidak valid. Harus mengandung kolom: 'title' dan salah satu dari 'project_id' atau 'project_key'.",
+            detail="Header CSV tidak valid. Harus mengandung kolom: 'title' dan 'project_key'.",
         )
 
     errors = []
@@ -288,7 +285,6 @@ async def import_csv(
             user_dept_id = user_team.department_id
 
     for idx, row in enumerate(reader, start=2):
-        proj_id_str = row.get("project_id", "").strip() if "project_id" in row else ""
         proj_key_str = (
             row.get("project_key", "").strip() if "project_key" in row else ""
         )
@@ -314,24 +310,7 @@ async def import_csv(
 
         # 1. Project Lookup
         project = None
-        if proj_id_str:
-            try:
-                pid = int(proj_id_str)
-                project = (
-                    db.query(Project)
-                    .filter(Project.id == pid, Project.deleted_at.is_(None))
-                    .first()
-                )
-            except ValueError:
-                errors.append(
-                    {
-                        "row": idx,
-                        "field": "project_id",
-                        "message": "ID Proyek harus berupa angka.",
-                    }
-                )
-                continue
-        elif proj_key_str:
+        if proj_key_str:
             project = (
                 db.query(Project)
                 .filter(Project.key == proj_key_str, Project.deleted_at.is_(None))
@@ -342,7 +321,7 @@ async def import_csv(
             errors.append(
                 {
                     "row": idx,
-                    "field": "project_id",
+                    "field": "project_key",
                     "message": "Proyek tidak ditemukan.",
                 }
             )
