@@ -61,7 +61,16 @@ export function useTasks(projectId: number | null = null): UseTasksResult {
     fetchTasks();
   }, [fetchTasks]);
 
+  // Auto-clear error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const createTask = async (data: TaskCreate, pId: number): Promise<Task> => {
+    setError(null);
     const newTask = await taskApi.create(data, pId);
     // Prepend to the list if it belongs to the current workspace
     if (!projectId || pId === projectId) {
@@ -71,6 +80,7 @@ export function useTasks(projectId: number | null = null): UseTasksResult {
   };
 
   const updateTask = async (id: number, data: TaskUpdate): Promise<Task> => {
+    setError(null);
     const updated = await taskApi.update(id, data);
     setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
     return updated;
@@ -80,11 +90,14 @@ export function useTasks(projectId: number | null = null): UseTasksResult {
     // Optimistic removal
     setTasks((prev) => prev.filter((t) => t.id !== id));
     try {
+      setError(null);
       await taskApi.delete(id);
-    } catch {
+    } catch (err: any) {
       // Rollback on failure
       fetchTasks();
-      throw new Error("Gagal menghapus task.");
+      const msg = err.response?.data?.detail || "Gagal menghapus task.";
+      setError(msg);
+      throw err;
     }
   };
 
