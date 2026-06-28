@@ -1,6 +1,9 @@
 from typing import Optional
+
 from sqlalchemy.orm import Session
+
 from app.db.models.activity_log import ActivityLog
+
 
 class ActivityLoggerService:
     @staticmethod
@@ -22,7 +25,7 @@ class ActivityLoggerService:
             project_id=project_id,
             field=field,
             old_value=old_val,
-            new_value=new_val
+            new_value=new_val,
         )
         db.add(log_entry)
         db.commit()

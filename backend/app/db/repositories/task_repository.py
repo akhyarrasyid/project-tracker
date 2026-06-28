@@ -1,14 +1,14 @@
 """TaskRepository — data access layer with pagination, filtering, sorting, search."""
-import math
+
 from typing import List, Optional, Tuple
 
-from sqlalchemy import func, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.db.models.task import Task
-from app.db.models.project import Project
-from app.db.models.team import Team
 from app.db.models.department import Department
+from app.db.models.project import Project
+from app.db.models.task import Task
+from app.db.models.team import Team
 from app.schemas.task import TaskCreate, TaskUpdate
 
 _SORTABLE_COLUMNS = {
@@ -31,7 +31,9 @@ class TaskRepository:
 
     @staticmethod
     def get_by_id(db: Session, task_id: int) -> Optional[Task]:
-        return db.query(Task).filter(Task.id == task_id, Task.deleted_at.is_(None)).first()
+        return (
+            db.query(Task).filter(Task.id == task_id, Task.deleted_at.is_(None)).first()
+        )
 
     @staticmethod
     def list(
@@ -60,12 +62,10 @@ class TaskRepository:
         q = db.query(Task).filter(Task.deleted_at.is_(None))
 
         # ── Relationships joins if needed ─────────────────────────────────────
-        joined_project = False
         joined_team = False
 
         if team_id or department_id or department or team:
             q = q.join(Project, Task.project_id == Project.id)
-            joined_project = True
         if department_id or department:
             q = q.join(Team, Project.team_id == Team.id)
             joined_team = True
@@ -76,9 +76,11 @@ class TaskRepository:
             joined_team = True
         if assignee:
             from app.db.models.user import User
+
             q = q.join(User, Task.assignee_id == User.id)
         if sprint:
             from app.db.models.sprint import Sprint
+
             q = q.join(Sprint, Task.sprint_id == Sprint.id)
 
         # ── Filters ───────────────────────────────────────────────────────────
@@ -104,11 +106,13 @@ class TaskRepository:
             q = q.filter(Department.name == department)
         if assignee:
             from app.db.models.user import User
+
             q = q.filter(or_(User.full_name == assignee, User.username == assignee))
         if team:
             q = q.filter(Team.name == team)
         if sprint:
             from app.db.models.sprint import Sprint
+
             q = q.filter(Sprint.name == sprint)
         if quarter:
             q = q.filter(Task.quarter == quarter)

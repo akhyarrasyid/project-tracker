@@ -6,27 +6,32 @@ Usage:
     python -m app.services.seed_service --dry-run
     python -m app.services.seed_service --validate
 """
+
 import argparse
 import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from pydantic import ValidationError
 
-from app.core.config import settings
+# Import models so metadata is populated
+import app.db.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.schemas.task import TaskCreate
 
-# Import models so metadata is populated
-import app.db.models  # noqa: F401
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
-SEED_FILE = Path(__file__).resolve().parents[2] / "app" / "db" / "seeds" / "project_tracker_seed.json"
+SEED_FILE = (
+    Path(__file__).resolve().parents[2]
+    / "app"
+    / "db"
+    / "seeds"
+    / "project_tracker_seed.json"
+)
 
 
 def _load_seed_data() -> List[Dict[str, Any]]:
@@ -37,7 +42,9 @@ def _load_seed_data() -> List[Dict[str, Any]]:
         return json.load(f)
 
 
-def _validate_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _validate_records(
+    records: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Validate all records through Pydantic. Returns list of valid data dicts."""
     valid = []
     errors = []
@@ -45,7 +52,11 @@ def _validate_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         try:
             # We copy record and remove legacy string fields before passing to TaskCreate validation,
             # as TaskCreate does not define them anymore, but we want to validate the rest!
-            record_clean = {k: v for k, v in record.items() if k not in ["department", "team", "assignee", "created_by", "sprint"]}
+            record_clean = {
+                k: v
+                for k, v in record.items()
+                if k not in ["department", "team", "assignee", "created_by", "sprint"]
+            }
             validated = TaskCreate(**record_clean)
             dump = validated.model_dump()
             if "id" in record:
@@ -73,7 +84,9 @@ def cmd_validate(records: List[Dict[str, Any]]) -> None:
     valid, errors = _validate_records(records)
     log.info(f"Result — valid: {len(valid)}, invalid: {len(errors)}")
     if errors:
-        log.error(f"{len(errors)} record(s) failed validation. Fix them before seeding.")
+        log.error(
+            f"{len(errors)} record(s) failed validation. Fix them before seeding."
+        )
         sys.exit(1)
     log.info("All records are valid. Safe to seed.")
     sys.exit(0)
@@ -82,20 +95,22 @@ def cmd_validate(records: List[Dict[str, Any]]) -> None:
 def cmd_dry_run(records: List[Dict[str, Any]]) -> None:
     log.info(f"Dry-run: validating {len(records)} records (no DB writes) ...")
     valid, errors = _validate_records(records)
-    log.info(f"Dry-run complete — {len(valid)} would be inserted, {len(errors)} would be skipped.")
+    log.info(
+        f"Dry-run complete — {len(valid)} would be inserted, {len(errors)} would be skipped."
+    )
     if errors:
         log.warning(f"{len(errors)} records would be skipped due to validation errors.")
     sys.exit(0)  # dry-run is always informational; never a hard failure
 
 
 def cmd_seed(records: List[Dict[str, Any]]) -> None:
-    from app.db.models.task import Task
-    from app.db.models.department import Department
-    from app.db.models.team import Team
-    from app.db.models.project import Project
-    from app.db.models.user import User
-    from app.db.models.sprint import Sprint
     from app.core.security import get_password_hash
+    from app.db.models.department import Department
+    from app.db.models.project import Project
+    from app.db.models.sprint import Sprint
+    from app.db.models.task import Task
+    from app.db.models.team import Team
+    from app.db.models.user import User
 
     log.info(f"Seeding {len(records)} records ...")
     valid_data, errors = _validate_records(records)
@@ -106,25 +121,35 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
     db = SessionLocal()
     try:
         # We need a default dept/team/project/user to fall back on
-        default_dept = db.query(Department).filter(Department.name == "Engineering").first()
+        default_dept = (
+            db.query(Department).filter(Department.name == "Engineering").first()
+        )
         if not default_dept:
-            default_dept = Department(name="Engineering", description="Default Engineering Department")
+            default_dept = Department(
+                name="Engineering", description="Default Engineering Department"
+            )
             db.add(default_dept)
             db.flush()
 
         default_team = db.query(Team).filter(Team.name == "Default Team").first()
         if not default_team:
-            default_team = Team(name="Default Team", department_id=default_dept.id, description="Default Team")
+            default_team = Team(
+                name="Default Team",
+                department_id=default_dept.id,
+                description="Default Team",
+            )
             db.add(default_team)
             db.flush()
 
-        default_project = db.query(Project).filter(Project.name == "Default Project").first()
+        default_project = (
+            db.query(Project).filter(Project.name == "Default Project").first()
+        )
         if not default_project:
             default_project = Project(
                 name="Default Project",
                 key="DEF",
                 team_id=default_team.id,
-                status="ACTIVE"
+                status="ACTIVE",
             )
             db.add(default_project)
             db.flush()
@@ -138,7 +163,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
                 hashed_password=get_password_hash("password123"),
                 role="admin",
                 team_id=default_team.id,
-                is_active=True
+                is_active=True,
             )
             db.add(default_user)
             db.flush()
@@ -176,12 +201,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             key = "".join([c for c in name if c.isupper()])[:5]
             if not key:
                 key = name[:3].upper()
-            project = Project(
-                name=name,
-                key=key,
-                team_id=team_id,
-                status="ACTIVE"
-            )
+            project = Project(name=name, key=key, team_id=team_id, status="ACTIVE")
             db.add(project)
             db.flush()
             projects_cache[name] = project.id
@@ -200,7 +220,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
                 hashed_password=get_password_hash("password123"),
                 role="worker",
                 team_id=team_id,
-                is_active=True
+                is_active=True,
             )
             db.add(u)
             db.flush()
@@ -212,11 +232,12 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             if name in sprints_cache:
                 return sprints_cache[name]
             import datetime
+
             s = Sprint(
                 name=name,
                 start_date=datetime.date.today(),
                 end_date=datetime.date.today() + datetime.timedelta(days=14),
-                status="UPCOMING"
+                status="UPCOMING",
             )
             db.add(s)
             db.flush()
@@ -224,7 +245,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             return s.id
 
         existing_ids = {row[0] for row in db.query(Task.id).all()}
-        
+
         # Prepare records for insertion
         to_insert = []
         for d in valid_data:
@@ -234,7 +255,7 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             # Resolve hierarchy
             dept_str = d.get("department")
             team_str = d.get("team")
-            
+
             if dept_str and team_str:
                 dept_id = get_or_create_dept(dept_str)
                 team_id = get_or_create_team(team_str, dept_id)
@@ -245,7 +266,9 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
             # Resolve assignee and creator
             assignee_str = d.get("assignee")
-            assignee_id = get_or_create_user(assignee_str, team_id) if assignee_str else None
+            assignee_id = (
+                get_or_create_user(assignee_str, team_id) if assignee_str else None
+            )
 
             creator_str = d.get("created_by") or "admin"
             created_by_id = get_or_create_user(creator_str, team_id)
@@ -256,7 +279,11 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
             # Build Task DB attributes
             # Remove legacy fields
-            task_kwargs = {k: v for k, v in d.items() if k not in ["department", "team", "assignee", "created_by", "sprint"]}
+            task_kwargs = {
+                k: v
+                for k, v in d.items()
+                if k not in ["department", "team", "assignee", "created_by", "sprint"]
+            }
 
             task_kwargs["project_id"] = project_id
             task_kwargs["assignee_id"] = assignee_id
@@ -288,12 +315,12 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
 
 def cmd_reset(records: List[Dict[str, Any]]) -> None:
-    from app.db.models.task import Task
-    from app.db.models.project import Project
-    from app.db.models.team import Team
     from app.db.models.department import Department
-    from app.db.models.user import User
+    from app.db.models.project import Project
     from app.db.models.sprint import Sprint
+    from app.db.models.task import Task
+    from app.db.models.team import Team
+    from app.db.models.user import User
 
     log.info("Resetting database — dropping and re-seeding all tasks ...")
     db = SessionLocal()
@@ -308,7 +335,7 @@ def cmd_reset(records: List[Dict[str, Any]]) -> None:
         db.query(User).delete()
         db.query(Team).delete()
         db.query(Department).delete()
-        
+
         db.commit()
         log.info("Deleted existing records.")
     except Exception:
@@ -327,10 +354,21 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Project Tracker seed service")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--seed", action="store_true", help="Insert records (idempotent)")
-    group.add_argument("--reset", action="store_true", help="DROP all data then re-seed")
-    group.add_argument("--dry-run", action="store_true", dest="dry_run", help="Validate only, no writes")
-    group.add_argument("--validate", action="store_true", help="Validate JSON structure and enums")
+    group.add_argument(
+        "--seed", action="store_true", help="Insert records (idempotent)"
+    )
+    group.add_argument(
+        "--reset", action="store_true", help="DROP all data then re-seed"
+    )
+    group.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Validate only, no writes",
+    )
+    group.add_argument(
+        "--validate", action="store_true", help="Validate JSON structure and enums"
+    )
     args = parser.parse_args()
 
     records = _load_seed_data()

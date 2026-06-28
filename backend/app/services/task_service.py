@@ -1,25 +1,31 @@
 import datetime
-from typing import Optional
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.db.models.task import Task
 from app.db.models.activity_log import ActivityLog
+from app.db.models.task import Task
 from app.db.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate, TaskStatus
+from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.activity_service import ActivityLoggerService
+
 
 class TaskService:
     @staticmethod
     def get_last_non_blocked_status(db: Session, task_id: int) -> str:
         # Query activity logs for status changes
-        log = db.query(ActivityLog).filter(
-            ActivityLog.task_id == task_id,
-            ActivityLog.field == "status",
-            ActivityLog.new_value != "Blocked"
-        ).order_by(ActivityLog.created_at.desc()).first()
-        
-        if log:
+        log = (
+            db.query(ActivityLog)
+            .filter(
+                ActivityLog.task_id == task_id,
+                ActivityLog.field == "status",
+                ActivityLog.new_value != "Blocked",
+            )
+            .order_by(ActivityLog.created_at.desc())
+            .first()
+        )
+
+        if log and log.new_value:
             return log.new_value
         return "Todo"
 
@@ -44,7 +50,7 @@ class TaskService:
             if new_status != prev_status:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot transition from Blocked to '{new_status}'. Must return to previous state '{prev_status}'."
+                    detail=f"Cannot transition from Blocked to '{new_status}'. Must return to previous state '{prev_status}'.",
                 )
             return
 
@@ -54,17 +60,19 @@ class TaskService:
             "In Progress": {"Review"},
             "Review": {"Done"},
         }
-        
+
         if new_status not in allowed.get(old_status, set()):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status transition from '{old_status}' to '{new_status}'."
+                detail=f"Invalid status transition from '{old_status}' to '{new_status}'.",
             )
 
     @staticmethod
-    def create_task(db: Session, project_id: int, task_in: TaskCreate, creator_id: int) -> Task:
+    def create_task(
+        db: Session, project_id: int, task_in: TaskCreate, creator_id: int
+    ) -> Task:
         data = task_in.model_dump()
-        
+
         # Enforce progress sync on creation
         if data["status"] == "Done":
             data["progress_percentage"] = 100
@@ -74,14 +82,14 @@ class TaskService:
             data["status"] = "Done"
             data["completed_at"] = datetime.datetime.now(datetime.timezone.utc)
             data["completed_by_id"] = creator_id
-        elif 0 < data["progress_percentage"] < 100 and data["status"] not in ("In Progress", "Review", "Blocked"):
+        elif 0 < data["progress_percentage"] < 100 and data["status"] not in (
+            "In Progress",
+            "Review",
+            "Blocked",
+        ):
             data["status"] = "In Progress"
 
-        task = Task(
-            project_id=project_id,
-            created_by_id=creator_id,
-            **data
-        )
+        task = Task(project_id=project_id, created_by_id=creator_id, **data)
         db.add(task)
         db.commit()
         db.refresh(task)
@@ -92,14 +100,16 @@ class TaskService:
             actor_id=creator_id,
             action="Task Created",
             task_id=task.id,
-            project_id=project_id
+            project_id=project_id,
         )
         return task
 
     @staticmethod
-    def update_task(db: Session, task: Task, task_in: TaskUpdate, actor_id: int) -> Task:
+    def update_task(
+        db: Session, task: Task, task_in: TaskUpdate, actor_id: int
+    ) -> Task:
         updates = task_in.model_dump(exclude_unset=True)
-        
+
         # Track old values for activity log
         old_status = task.status
         old_progress = task.progress_percentage
@@ -116,7 +126,9 @@ class TaskService:
 
         # Enforce transitions
         if "status" in updates:
-            TaskService.validate_and_apply_status_transition(db, task, new_status, actor_id, is_admin=is_admin)
+            TaskService.validate_and_apply_status_transition(
+                db, task, new_status, actor_id, is_admin=is_admin
+            )
 
         # Auto sync: status Done -> progress 100%
         if "status" in updates and new_status == "Done":
@@ -134,7 +146,7 @@ class TaskService:
         elif "progress_percentage" in updates and 0 < new_progress < 100:
             if new_status not in ("In Progress", "Review", "Blocked"):
                 updates["status"] = "In Progress"
-                
+
         # Clean completed fields if transitioned back from Done
         if "status" in updates and new_status != "Done" and old_status == "Done":
             updates["completed_at"] = None
@@ -150,23 +162,47 @@ class TaskService:
         # Log changes
         if old_status != task.status:
             ActivityLoggerService.log(
-                db, actor_id=actor_id, action="Status Changed", task_id=task.id,
-                project_id=task.project_id, field="status", old_val=old_status, new_val=task.status
+                db,
+                actor_id=actor_id,
+                action="Status Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="status",
+                old_val=old_status,
+                new_val=task.status,
             )
         if old_progress != task.progress_percentage:
             ActivityLoggerService.log(
-                db, actor_id=actor_id, action="Progress Changed", task_id=task.id,
-                project_id=task.project_id, field="progress_percentage", old_val=str(old_progress), new_val=str(task.progress_percentage)
+                db,
+                actor_id=actor_id,
+                action="Progress Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="progress_percentage",
+                old_val=str(old_progress),
+                new_val=str(task.progress_percentage),
             )
         if old_assignee != task.assignee_id:
             ActivityLoggerService.log(
-                db, actor_id=actor_id, action="Assignee Changed", task_id=task.id,
-                project_id=task.project_id, field="assignee_id", old_val=str(old_assignee), new_val=str(task.assignee_id)
+                db,
+                actor_id=actor_id,
+                action="Assignee Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="assignee_id",
+                old_val=str(old_assignee),
+                new_val=str(task.assignee_id),
             )
         if old_priority != task.priority:
             ActivityLoggerService.log(
-                db, actor_id=actor_id, action="Priority Changed", task_id=task.id,
-                project_id=task.project_id, field="priority", old_val=old_priority, new_val=task.priority
+                db,
+                actor_id=actor_id,
+                action="Priority Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="priority",
+                old_val=old_priority,
+                new_val=task.priority,
             )
 
         return task
@@ -183,5 +219,5 @@ class TaskService:
             actor_id=actor_id,
             action="Task Deleted",
             task_id=task.id,
-            project_id=task.project_id
+            project_id=task.project_id,
         )
