@@ -313,6 +313,9 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
         log.info(f"Inserting {len(to_insert)} records ...")
         db.add_all(to_insert)
         db.commit()
+        
+        # Reset ID sequences to max ID + 1 to prevent sequence out-of-sync insertion conflicts
+        _reset_sequences(db)
         log.info(f"✓ Seeding complete — {len(to_insert)} records inserted.")
     except Exception:
         db.rollback()
@@ -320,6 +323,20 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
         sys.exit(1)
     finally:
         db.close()
+
+
+def _reset_sequences(db: Session) -> None:
+    from sqlalchemy import text
+    tables = ["tasks", "users", "departments", "teams", "projects", "sprints"]
+    for t in tables:
+        try:
+            res = db.execute(text(f"SELECT MAX(id) FROM {t}")).scalar()
+            max_id = res if res is not None else 0
+            next_val = max_id + 1
+            db.execute(text(f"SELECT setval('{t}_id_seq', {next_val}, false)"))
+        except Exception as e:
+            log.warning(f"Failed to reset sequence for table {t}: {e}")
+    db.commit()
 
 
 def cmd_reset(records: List[Dict[str, Any]]) -> None:
