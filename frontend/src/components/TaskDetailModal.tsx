@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { metaApi } from "../api/meta";
 import type { Task, TaskStatus, TaskPriority, Quarter, RiskLevel, CustomerImpact } from "../types/task";
+import type { UserMeta } from "../types/meta";
 
 interface Props {
   readonly task: Task;
@@ -22,16 +24,11 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
     description: task.description,
     status: task.status,
     priority: task.priority,
-    department: task.department,
-    team: task.team,
-    assignee: task.assignee,
-    created_by: task.created_by,
     due_date: task.due_date,
     story_points: task.story_points,
     estimated_hours: task.estimated_hours,
     actual_hours: task.actual_hours,
     progress_percentage: task.progress_percentage,
-    sprint: task.sprint,
     quarter: task.quarter,
     risk_level: task.risk_level,
     customer_impact: task.customer_impact,
@@ -39,8 +36,17 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
     tagsInput: task.tags.join(", "),
   });
 
+  const [assigneeId, setAssigneeId] = useState<number | "">(task.assignee_id || "");
+  const [projectMembers, setProjectMembers] = useState<UserMeta[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Load project members on mount
+  useEffect(() => {
+    metaApi.getUsers(task.project_id)
+      .then(setProjectMembers)
+      .catch(console.error);
+  }, [task.project_id]);
 
   const handleChange = (field: string, val: any) => {
     setForm((prev) => ({ ...prev, [field]: val }));
@@ -49,14 +55,6 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
   const handleSave = async () => {
     if (!form.title.trim()) {
       setError("Judul task tidak boleh kosong.");
-      return;
-    }
-    if (!form.department.trim() || !form.team.trim() || !form.assignee.trim() || !form.created_by.trim()) {
-      setError("Department, team, assignee, dan created by wajib diisi.");
-      return;
-    }
-    if (!form.sprint.trim()) {
-      setError("Sprint wajib diisi.");
       return;
     }
 
@@ -73,16 +71,12 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
       description: form.description,
       status: form.status,
       priority: form.priority,
-      department: form.department,
-      team: form.team,
-      assignee: form.assignee,
-      created_by: form.created_by,
+      assignee_id: assigneeId ? Number(assigneeId) : null,
       due_date: form.due_date,
       story_points: form.story_points,
       estimated_hours: form.estimated_hours,
       actual_hours: form.actual_hours,
       progress_percentage: form.progress_percentage,
-      sprint: form.sprint,
       quarter: form.quarter,
       risk_level: form.risk_level,
       customer_impact: form.customer_impact,
@@ -175,24 +169,16 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="detail-department" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
-                <input
-                  id="detail-department"
-                  type="text"
-                  value={form.department}
-                  onChange={(e) => handleChange("department", e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Department</label>
+                <div className="w-full bg-slate-50 border border-slate-250 rounded-lg px-3 py-2 text-sm text-slate-500 font-semibold select-none">
+                  {task.department || "No Department"}
+                </div>
               </div>
               <div>
-                <label htmlFor="detail-team" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team</label>
-                <input
-                  id="detail-team"
-                  type="text"
-                  value={form.team}
-                  onChange={(e) => handleChange("team", e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Team</label>
+                <div className="w-full bg-slate-50 border border-slate-250 rounded-lg px-3 py-2 text-sm text-slate-500 font-semibold select-none">
+                  {task.team || "No Team"}
+                </div>
               </div>
             </div>
 
@@ -209,14 +195,10 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                 />
               </div>
               <div>
-                <label htmlFor="detail-sprint" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint</label>
-                <input
-                  id="detail-sprint"
-                  type="text"
-                  value={form.sprint}
-                  onChange={(e) => handleChange("sprint", e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Sprint</label>
+                <div className="w-full bg-slate-50 border border-slate-250 rounded-lg px-3 py-2 text-sm text-slate-500 font-semibold select-none">
+                  {task.sprint || "No Sprint"}
+                </div>
               </div>
             </div>
 
@@ -268,25 +250,25 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             </div>
 
             <div>
-              <label htmlFor="detail-assignee" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee</label>
-              <input
-                id="detail-assignee"
-                type="text"
-                value={form.assignee}
-                onChange={(e) => handleChange("assignee", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
+              <label htmlFor="detail-assignee-select" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assignee</label>
+              <select
+                id="detail-assignee-select"
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">Unassigned</option>
+                {projectMembers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <label htmlFor="detail-created-by" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By</label>
-              <input
-                id="detail-created-by"
-                type="text"
-                value={form.created_by}
-                onChange={(e) => handleChange("created_by", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Created By</label>
+              <div className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-500 font-semibold select-none">
+                {task.created_by}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -303,11 +285,13 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label htmlFor="detail-estimated-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Est. Hours</label>
                 <input
                   id="detail-estimated-hours"
                   type="number"
+                  min={1}
                   value={form.estimated_hours}
                   onChange={(e) => handleChange("estimated_hours", Number(e.target.value))}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -317,43 +301,28 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label htmlFor="detail-actual-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Actual Hours</label>
+                <label htmlFor="detail-actual-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Act. Hours</label>
                 <input
                   id="detail-actual-hours"
                   type="number"
+                  min={0}
                   value={form.actual_hours}
                   onChange={(e) => handleChange("actual_hours", Number(e.target.value))}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
-              <div>
-                <label htmlFor="detail-sla-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
-                <select
-                  id="detail-sla-hours"
-                  value={form.sla_hours}
-                  onChange={(e) => handleChange("sla_hours", Number(e.target.value))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  {SLA_HOURS.map((sla) => (
-                    <option key={sla} value={sla}>{sla}h</option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
-            <div>
-              <label htmlFor="detail-progress" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Progress Percentage</label>
-              <div className="flex items-center gap-2">
+              <div>
+                <label htmlFor="detail-progress" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Progress (%)</label>
                 <input
                   id="detail-progress"
-                  type="range"
-                  min="0"
-                  max="100"
+                  type="number"
+                  min={0}
+                  max={100}
                   value={form.progress_percentage}
                   onChange={(e) => handleChange("progress_percentage", Number(e.target.value))}
-                  className="flex-1 accent-blue-500"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
-                <span className="text-xs font-semibold text-slate-600 w-8 text-right">{form.progress_percentage}%</span>
               </div>
             </div>
 
@@ -371,6 +340,7 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label htmlFor="detail-risk-level" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Risk Level</label>
                 <select
@@ -379,25 +349,41 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
                   onChange={(e) => handleChange("risk_level", e.target.value as RiskLevel)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  {RISK_LEVELS.map((rl) => (
-                    <option key={rl} value={rl}>{rl}</option>
+                  {RISK_LEVELS.map((r) => (
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="detail-customer-impact" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Customer Impact</label>
-              <select
-                id="detail-customer-impact"
-                value={form.customer_impact}
-                onChange={(e) => handleChange("customer_impact", e.target.value as CustomerImpact)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                {CUSTOMER_IMPACTS.map((ci) => (
-                  <option key={ci} value={ci}>{ci}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor="detail-impact" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Impact</label>
+                <select
+                  id="detail-impact"
+                  value={form.customer_impact}
+                  onChange={(e) => handleChange("customer_impact", e.target.value as CustomerImpact)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  {CUSTOMER_IMPACTS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="detail-sla-hours" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">SLA Hours</label>
+                <select
+                  id="detail-sla-hours"
+                  value={form.sla_hours}
+                  onChange={(e) => handleChange("sla_hours", Number(e.target.value))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  {SLA_HOURS.map((h) => (
+                    <option key={h} value={h}>{h}h</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -420,14 +406,14 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
             <button
               onClick={onClose}
               disabled={saving}
-              className="text-sm font-medium text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 px-4 py-2 rounded-lg transition-colors cursor-pointer"
+              className="text-sm font-medium text-slate-650 hover:text-slate-800 bg-white hover:bg-slate-55 border border-slate-200 px-4 py-2 rounded-lg transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+              className="text-sm font-medium text-white bg-blue-650 hover:bg-blue-700 disabled:bg-blue-300 px-4 py-2 rounded-lg transition-colors cursor-pointer"
             >
               {saving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>

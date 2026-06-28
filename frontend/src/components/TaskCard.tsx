@@ -36,7 +36,6 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
   const dueDate = new Date(task.due_date).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
-    year: "numeric",
   });
 
   const isOverdue = task.status !== "Done" && new Date(task.due_date) < new Date();
@@ -45,25 +44,26 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
     <div
       draggable
       onDragStart={handleDragStart}
-      className={`group relative bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing hover:border-blue-200 transition-all duration-200 ${
+      className={`group relative bg-white rounded-xl border border-slate-150 py-2 px-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-md cursor-grab active:cursor-grabbing hover:border-blue-300 transition-all duration-150 ${
         loading ? "opacity-60 pointer-events-none" : ""
       }`}
+      style={{ minHeight: "72px" }}
     >
-      {/* Header row: priority badge + ID + delete button */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+      {/* Top row: ID, priority, Blocked status, Delete button */}
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1 py-0.5 rounded shrink-0">
             WDD-{task.id}
           </span>
           <span
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+            className={`text-[9px] font-bold px-1 py-0.5 rounded border shrink-0 ${
               PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Low
             }`}
           >
             {task.priority}
           </span>
           {task.status === "Blocked" && (
-            <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 uppercase tracking-wide">
+            <span className="text-[9px] font-bold bg-red-50 text-red-650 px-1 py-0.5 rounded border border-red-100 uppercase tracking-wide shrink-0">
               Blocked
             </span>
           )}
@@ -71,9 +71,9 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
         <button
           onClick={handleDelete}
           title="Hapus"
-          className="relative z-10 opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+          className="relative z-10 opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer shrink-0"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -85,11 +85,11 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
       </div>
 
       {/* Title */}
-      <h3 className="mb-1">
+      <h3 className="mb-1.5">
         <button
           type="button"
           onClick={() => onTaskClick(task)}
-          className={`w-full text-left font-semibold text-slate-800 text-sm leading-snug group-hover:text-blue-600 transition-colors focus:outline-none focus:underline after:absolute after:inset-0 after:rounded-xl ${
+          className={`w-full text-left font-semibold text-slate-800 text-xs leading-snug group-hover:text-blue-600 transition-colors focus:outline-none focus:underline after:absolute after:inset-0 after:rounded-xl line-clamp-1 ${
             task.status === "Done" ? "line-through text-slate-400" : ""
           }`}
         >
@@ -97,61 +97,25 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
         </button>
       </h3>
 
-      {/* Description Summary */}
-      {task.description && (
-        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-3">
-          {task.description}
-        </p>
-      )}
-
-      {/* Tags */}
-      {task.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {task.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Progress bar */}
-      {task.progress_percentage > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between text-[10px] text-slate-400 mb-0.5">
-            <span>Progress</span>
-            <span>{task.progress_percentage}%</span>
-          </div>
-          <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${
-                task.status === "Done" ? "bg-emerald-400" : "bg-blue-400"
-              }`}
-              style={{ width: `${task.progress_percentage}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Footer row: SP + assignee avatar */}
-      <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-50 pt-2.5">
+      {/* Footer row: Due date, Story Points, Assignee */}
+      <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-50 pt-1.5 mt-auto">
         <span
-          className={`shrink-0 flex items-center gap-1 ${
+          className={`shrink-0 flex items-center gap-1 text-[9px] font-medium ${
             isOverdue ? "text-red-500 font-semibold" : ""
           }`}
           title="Due date"
         >
           📅 {dueDate}
         </span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">
-            ⚡ {task.story_points} SP
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] bg-slate-50 text-slate-500 border border-slate-100 px-1 py-0.2 rounded font-bold shrink-0">
+            ⚡ {task.story_points}
           </span>
-          <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px]" title={task.assignee}>
-            {task.assignee.substring(0, 2).toUpperCase()}
+          <span
+            className="w-4.5 h-4.5 rounded-full bg-blue-105 text-blue-700 flex items-center justify-center font-bold text-[8px] uppercase shrink-0"
+            title={task.assignee}
+          >
+            {task.assignee.substring(0, 2)}
           </span>
         </div>
       </div>
