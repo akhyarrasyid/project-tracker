@@ -1,13 +1,5 @@
-"""Enterprise-grade seed service.
-
-Usage:
-    python -m app.services.seed_service --seed
-    python -m app.services.seed_service --reset
-    python -m app.services.seed_service --dry-run
-    python -m app.services.seed_service --validate
-"""
-
 import argparse
+import datetime
 import json
 import logging
 import sys
@@ -15,10 +7,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
 # Import models so metadata is populated
-import app.db.models  # noqa: F401
 from app.db.base import Base
+from app.db.models.department import Department
+from app.db.models.project import Project
+from app.db.models.sprint import Sprint
+from app.db.models.task import Task
+from app.db.models.team import Team
+from app.db.models.user import User
 from app.db.session import SessionLocal, engine
 from app.schemas.task import TaskCreate
 
@@ -32,6 +30,90 @@ SEED_FILE = (
     / "seeds"
     / "project_tracker_seed.json"
 )
+
+DEFAULT_DEPT_NAME = "Engineering"
+DEFAULT_TEAM_NAME = "Default Team"
+DEFAULT_PROJECT_NAME = "Default Project"
+
+
+class SeederContext:
+    """Helper to load and cache db models to avoid redundant queries during seeding."""
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.depts_cache = {d.name: d.id for d in db.query(Department).all()}
+        self.teams_cache = {t.name: t.id for t in db.query(Team).all()}
+        self.projects_cache = {p.name: p.id for p in db.query(Project).all()}
+        self.users_cache = {u.full_name: u.id for u in db.query(User).all()}
+        self.users_by_username = {u.username: u.id for u in db.query(User).all()}
+        self.sprints_cache = {s.name: s.id for s in db.query(Sprint).all()}
+
+    def get_or_create_dept(self, name: str) -> int:
+        if name in self.depts_cache:
+            return self.depts_cache[name]
+        d = Department(name=name, description=f"{name} Department")
+        self.db.add(d)
+        self.db.flush()
+        self.depts_cache[name] = d.id
+        return d.id
+
+    def get_or_create_team(self, name: str, dept_id: int) -> int:
+        if name in self.teams_cache:
+            return self.teams_cache[name]
+        t = Team(name=name, department_id=dept_id, description=f"{name} Team")
+        self.db.add(t)
+        self.db.flush()
+        self.teams_cache[name] = t.id
+        return t.id
+
+    def get_or_create_project(self, name: str, team_id: int) -> int:
+        if name in self.projects_cache:
+            return self.projects_cache[name]
+        key = "".join([c for c in name if c.isupper()])[:5]
+        if not key:
+            key = name[:3].upper()
+        project = Project(name=name, key=key, team_id=team_id, status="ACTIVE")
+        self.db.add(project)
+        self.db.flush()
+        self.projects_cache[name] = project.id
+        return project.id
+
+    def get_or_create_user(self, full_name: str, team_id: int) -> int:
+        from app.core.security import get_password_hash
+
+        if full_name in self.users_cache:
+            return self.users_cache[full_name]
+        username = full_name.lower().replace(" ", "_")
+        if username in self.users_by_username:
+            return self.users_by_username[username]
+        u = User(
+            email=f"{username}@tracker.com",
+            username=username,
+            full_name=full_name,
+            hashed_password=get_password_hash("password123"),
+            role="worker",
+            team_id=team_id,
+            is_active=True,
+        )
+        self.db.add(u)
+        self.db.flush()
+        self.users_cache[full_name] = u.id
+        self.users_by_username[username] = u.id
+        return u.id
+
+    def get_or_create_sprint(self, name: str) -> int:
+        if name in self.sprints_cache:
+            return self.sprints_cache[name]
+        s = Sprint(
+            name=name,
+            start_date=datetime.date.today(),
+            end_date=datetime.date.today() + datetime.timedelta(days=14),
+            status="UPCOMING",
+        )
+        self.db.add(s)
+        self.db.flush()
+        self.sprints_cache[name] = s.id
+        return s.id
 
 
 def _load_seed_data() -> List[Dict[str, Any]]:
@@ -105,15 +187,9 @@ def cmd_dry_run(records: List[Dict[str, Any]]) -> None:
 
 def cmd_seed(records: List[Dict[str, Any]]) -> None:
     from app.core.security import get_password_hash
-    from app.db.models.department import Department
-    from app.db.models.project import Project
-    from app.db.models.sprint import Sprint
-    from app.db.models.task import Task
-    from app.db.models.team import Team
-    from app.db.models.user import User
 
     log.info(f"Seeding {len(records)} records ...")
-    valid_data, errors = _validate_records(records)
+    valid_data, _ = _validate_records(records)
     if not valid_data:
         log.error("No valid records to insert.")
         sys.exit(1)
@@ -122,31 +198,31 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
     try:
         # We need a default dept/team/project/user to fall back on
         default_dept = (
-            db.query(Department).filter(Department.name == "Engineering").first()
+            db.query(Department).filter(Department.name == DEFAULT_DEPT_NAME).first()
         )
         if not default_dept:
             default_dept = Department(
-                name="Engineering", description="Default Engineering Department"
+                name=DEFAULT_DEPT_NAME, description="Default Engineering Department"
             )
             db.add(default_dept)
             db.flush()
 
-        default_team = db.query(Team).filter(Team.name == "Default Team").first()
+        default_team = db.query(Team).filter(Team.name == DEFAULT_TEAM_NAME).first()
         if not default_team:
             default_team = Team(
-                name="Default Team",
+                name=DEFAULT_TEAM_NAME,
                 department_id=default_dept.id,
-                description="Default Team",
+                description=DEFAULT_TEAM_NAME,
             )
             db.add(default_team)
             db.flush()
 
         default_project = (
-            db.query(Project).filter(Project.name == "Default Project").first()
+            db.query(Project).filter(Project.name == DEFAULT_PROJECT_NAME).first()
         )
         if not default_project:
             default_project = Project(
-                name="Default Project",
+                name=DEFAULT_PROJECT_NAME,
                 key="DEF",
                 team_id=default_team.id,
                 status="ACTIVE",
@@ -168,82 +244,8 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             db.add(default_user)
             db.flush()
 
-        # Cache lookups to be super fast
-        depts_cache = {d.name: d.id for d in db.query(Department).all()}
-        teams_cache = {t.name: t.id for t in db.query(Team).all()}
-        projects_cache = {p.name: p.id for p in db.query(Project).all()}
-        users_cache = {u.full_name: u.id for u in db.query(User).all()}
-        users_by_username = {u.username: u.id for u in db.query(User).all()}
-        sprints_cache = {s.name: s.id for s in db.query(Sprint).all()}
-
-        # Cache helper functions to resolve or create on the fly
-        def get_or_create_dept(name: str) -> int:
-            if name in depts_cache:
-                return depts_cache[name]
-            d = Department(name=name, description=f"{name} Department")
-            db.add(d)
-            db.flush()
-            depts_cache[name] = d.id
-            return d.id
-
-        def get_or_create_team(name: str, dept_id: int) -> int:
-            if name in teams_cache:
-                return teams_cache[name]
-            t = Team(name=name, department_id=dept_id, description=f"{name} Team")
-            db.add(t)
-            db.flush()
-            teams_cache[name] = t.id
-            return t.id
-
-        def get_or_create_project(name: str, team_id: int) -> int:
-            if name in projects_cache:
-                return projects_cache[name]
-            key = "".join([c for c in name if c.isupper()])[:5]
-            if not key:
-                key = name[:3].upper()
-            project = Project(name=name, key=key, team_id=team_id, status="ACTIVE")
-            db.add(project)
-            db.flush()
-            projects_cache[name] = project.id
-            return project.id
-
-        def get_or_create_user(full_name: str, team_id: int) -> int:
-            if full_name in users_cache:
-                return users_cache[full_name]
-            username = full_name.lower().replace(" ", "_")
-            if username in users_by_username:
-                return users_by_username[username]
-            u = User(
-                email=f"{username}@tracker.com",
-                username=username,
-                full_name=full_name,
-                hashed_password=get_password_hash("password123"),
-                role="worker",
-                team_id=team_id,
-                is_active=True,
-            )
-            db.add(u)
-            db.flush()
-            users_cache[full_name] = u.id
-            users_by_username[username] = u.id
-            return u.id
-
-        def get_or_create_sprint(name: str) -> int:
-            if name in sprints_cache:
-                return sprints_cache[name]
-            import datetime
-
-            s = Sprint(
-                name=name,
-                start_date=datetime.date.today(),
-                end_date=datetime.date.today() + datetime.timedelta(days=14),
-                status="UPCOMING",
-            )
-            db.add(s)
-            db.flush()
-            sprints_cache[name] = s.id
-            return s.id
-
+        # Cache lookups using context helper
+        ctx = SeederContext(db)
         existing_ids = {row[0] for row in db.query(Task.id).all()}
 
         # Prepare records for insertion
@@ -257,9 +259,9 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             team_str = d.get("team")
 
             if dept_str and team_str:
-                dept_id = get_or_create_dept(dept_str)
-                team_id = get_or_create_team(team_str, dept_id)
-                project_id = get_or_create_project(f"{team_str} Project", team_id)
+                dept_id = ctx.get_or_create_dept(dept_str)
+                team_id = ctx.get_or_create_team(team_str, dept_id)
+                project_id = ctx.get_or_create_project(f"{team_str} Project", team_id)
             else:
                 project_id = default_project.id
                 team_id = default_team.id
@@ -267,18 +269,17 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
             # Resolve assignee and creator
             assignee_str = d.get("assignee")
             assignee_id = (
-                get_or_create_user(assignee_str, team_id) if assignee_str else None
+                ctx.get_or_create_user(assignee_str, team_id) if assignee_str else None
             )
 
             creator_str = d.get("created_by") or "admin"
-            created_by_id = get_or_create_user(creator_str, team_id)
+            created_by_id = ctx.get_or_create_user(creator_str, team_id)
 
             # Resolve sprint
             sprint_str = d.get("sprint")
-            sprint_id = get_or_create_sprint(sprint_str) if sprint_str else None
+            sprint_id = ctx.get_or_create_sprint(sprint_str) if sprint_str else None
 
             # Build Task DB attributes
-            # Remove legacy fields
             task_kwargs = {
                 k: v
                 for k, v in d.items()
@@ -315,22 +316,12 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
 
 def cmd_reset(records: List[Dict[str, Any]]) -> None:
-    from app.db.models.department import Department
-    from app.db.models.project import Project
-    from app.db.models.sprint import Sprint
-    from app.db.models.task import Task
-    from app.db.models.team import Team
-    from app.db.models.user import User
-
     log.info("Resetting database — dropping and re-seeding all tasks ...")
     db = SessionLocal()
     try:
         # Clear child dependencies first, then parents to respect foreign key constraints
         db.query(Task).delete()
         db.query(Sprint).delete()
-        # Delete projects, users, teams, and departments
-        # Note: avoid deleting active seeded users like current admin if they are needed,
-        # but in seed reset, everything is re-seeded, so deleting is correct.
         db.query(Project).delete()
         db.query(User).delete()
         db.query(Team).delete()
