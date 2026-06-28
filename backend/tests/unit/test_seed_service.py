@@ -105,11 +105,11 @@ def test_cmd_seed_idempotency(mock_records, db_session):
 
 
 def test_cmd_seed_db_error(mock_records, monkeypatch):
-    def mock_bulk_save(*args, **kwargs):
+    def mock_commit(*args, **kwargs):
         raise Exception("DB Error")
 
-    # Patch bulk_save_objects to raise an exception
-    monkeypatch.setattr("sqlalchemy.orm.Session.bulk_save_objects", mock_bulk_save)
+    # Patch commit to raise an exception
+    monkeypatch.setattr("sqlalchemy.orm.Session.commit", mock_commit)
 
     with pytest.raises(SystemExit) as excinfo:
         seed_service.cmd_seed(mock_records)
