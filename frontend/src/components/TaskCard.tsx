@@ -44,16 +44,8 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
   return (
     <div
       draggable
-      role="button"
-      tabIndex={0}
       onDragStart={handleDragStart}
       onClick={() => onTaskClick(task)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onTaskClick(task);
-        }
-      }}
       className={`group relative bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing hover:border-blue-200 transition-all duration-200 ${
         loading ? "opacity-60 pointer-events-none" : ""
       }`}
@@ -94,12 +86,19 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
       </div>
 
       {/* Title */}
-      <h3
-        className={`font-semibold text-slate-800 text-sm leading-snug mb-1 group-hover:text-blue-600 transition-colors ${
-          task.status === "Done" ? "line-through text-slate-400" : ""
-        }`}
-      >
-        {task.title}
+      <h3 className="mb-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTaskClick(task);
+          }}
+          className={`w-full text-left font-semibold text-slate-800 text-sm leading-snug group-hover:text-blue-600 transition-colors focus:outline-none focus:underline ${
+            task.status === "Done" ? "line-through text-slate-400" : ""
+          }`}
+        >
+          {task.title}
+        </button>
       </h3>
 
       {/* Description Summary */}

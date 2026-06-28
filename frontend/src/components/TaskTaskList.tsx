@@ -67,19 +67,20 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
             {tasks.map((task) => (
               <tr
                 key={task.id}
-                role="button"
-                tabIndex={0}
                 onClick={() => onTaskClick(task)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onTaskClick(task);
-                  }
-                }}
                 className="hover:bg-slate-50/50 cursor-pointer transition-colors"
               >
                 <td className="py-4 px-6 font-semibold text-blue-600 whitespace-nowrap">
-                  WDD-{task.id}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTaskClick(task);
+                    }}
+                    className="font-semibold text-blue-600 hover:underline focus:outline-none"
+                  >
+                    WDD-{task.id}
+                  </button>
                 </td>
                 <td className="py-4 px-6 font-medium text-slate-800">
                   {task.title}

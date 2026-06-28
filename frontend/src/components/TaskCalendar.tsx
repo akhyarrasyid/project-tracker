@@ -159,24 +159,17 @@ export function TaskCalendar({ tasks, onTaskClick }: Props) {
 
               <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                 {dateTasks.map((t) => (
-                  <div
+                  <button
                     key={t.id}
-                    role="button"
-                    tabIndex={0}
+                    type="button"
                     onClick={() => onTaskClick(t)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onTaskClick(t);
-                      }
-                    }}
-                    className={`text-[10px] font-semibold border px-1.5 py-1 rounded cursor-pointer transition-colors truncate ${getPriorityColor(
+                    className={`w-full text-left text-[10px] font-semibold border px-1.5 py-1 rounded cursor-pointer transition-colors truncate ${getPriorityColor(
                       t.priority
                     )}`}
                     title={`[WDD-${t.id}] ${t.title}`}
                   >
                     WDD-{t.id}: {t.title}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
