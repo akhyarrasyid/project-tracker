@@ -605,8 +605,20 @@ def delete_task(
     if task is None:
         raise NotFoundException("Task", task_id)
 
-    # Project authorization: must be member/owner of project
-    check_project_access(db, current_user, task.project_id, min_role="MEMBER")
+    # Project authorization: viewers cannot delete; members are restricted.
+    _, membership = check_project_access(
+        db, current_user, task.project_id, min_role="MEMBER"
+    )
+    if (
+        current_user.role != "admin"
+        and membership is not None
+        and membership.project_role == "MEMBER"
+        and (task.created_by_id != current_user.id or task.status == "Done")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Members may only delete their own unfinished issues",
+        )
     TaskService.soft_delete_task(db, task, current_user.id)
     return None
 
