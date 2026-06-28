@@ -31,7 +31,7 @@ def get_departments(
 
 @router.get("/teams", response_model=List[TeamResponse])
 def get_teams(
-    department_id: Optional[int] = Query(None),
+    department_id: Annotated[Optional[int], Query()] = None,
     db: Annotated[Session, Depends(get_db)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -43,7 +43,7 @@ def get_teams(
 
 @router.get("/projects", response_model=List[ProjectMetaResponse])
 def get_projects(
-    team_id: Optional[int] = Query(None),
+    team_id: Annotated[Optional[int], Query()] = None,
     db: Annotated[Session, Depends(get_db)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
@@ -68,7 +68,7 @@ def get_projects(
 
 @router.get("/users", response_model=List[UserMetaResponse])
 def get_users(
-    project_id: Optional[int] = Query(None),
+    project_id: Annotated[Optional[int], Query()] = None,
     db: Annotated[Session, Depends(get_db)] = None,
     current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
