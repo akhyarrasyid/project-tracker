@@ -45,7 +45,6 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
     <div
       draggable
       onDragStart={handleDragStart}
-      onClick={() => onTaskClick(task)}
       className={`group relative bg-white rounded-xl border border-slate-100 p-4 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing hover:border-blue-200 transition-all duration-200 ${
         loading ? "opacity-60 pointer-events-none" : ""
       }`}
@@ -72,7 +71,7 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
         <button
           onClick={handleDelete}
           title="Hapus"
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+          className="relative z-10 opacity-0 group-hover:opacity-100 p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -89,11 +88,8 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
       <h3 className="mb-1">
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onTaskClick(task);
-          }}
-          className={`w-full text-left font-semibold text-slate-800 text-sm leading-snug group-hover:text-blue-600 transition-colors focus:outline-none focus:underline ${
+          onClick={() => onTaskClick(task)}
+          className={`w-full text-left font-semibold text-slate-800 text-sm leading-snug group-hover:text-blue-600 transition-colors focus:outline-none focus:underline after:absolute after:inset-0 after:rounded-xl ${
             task.status === "Done" ? "line-through text-slate-400" : ""
           }`}
         >
