@@ -94,21 +94,10 @@ def list_tasks(
         quarter=params.quarter,
         risk_level=params.risk_level,
         search=params.search,
+        allowed_project_ids=allowed_project_ids,
         sort_by=params.sort_by,
         sort_order=params.sort_order,
     )
-    
-    # If allowed_project_ids is not None, filter items (safety check or database filter)
-    if allowed_project_ids is not None:
-        items = [i for i in items if i.project_id in allowed_project_ids]
-        # Recalculate total for filtered results if database didn't pre-filter it
-        if params.project_id is None:
-            # For simplicity, if we didn't filter by a single project_id, database might have returned projects user isn't in.
-            # But task_repository list doesn't pre-filter allowed_project_ids unless we pass it.
-            # Let's verify: we can filter in DB query directly by passing project_ids to task_repository list.
-            # Let's adjust task_repository list if needed, or query task table directly with project_id.in_(allowed_project_ids) if allowed_project_ids is set.
-            # To make it super robust, let's filter the query directly.
-            pass
 
     pages = math.ceil(total / params.size) if params.size else 0
     return TaskListResponse(items=items, total=total, page=params.page, size=params.size, pages=pages)
