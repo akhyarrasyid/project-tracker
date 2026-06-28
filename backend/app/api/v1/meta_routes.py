@@ -31,9 +31,9 @@ def get_departments(
 
 @router.get("/teams", response_model=List[TeamResponse])
 def get_teams(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     department_id: Annotated[Optional[int], Query()] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     query = db.query(Team)
     if department_id is not None:
@@ -43,9 +43,9 @@ def get_teams(
 
 @router.get("/projects", response_model=List[ProjectMetaResponse])
 def get_projects(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     team_id: Annotated[Optional[int], Query()] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     query = db.query(Project).filter(Project.deleted_at.is_(None))
     if team_id is not None:
@@ -68,9 +68,9 @@ def get_projects(
 
 @router.get("/users", response_model=List[UserMetaResponse])
 def get_users(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     project_id: Annotated[Optional[int], Query()] = None,
-    db: Annotated[Session, Depends(get_db)] = None,
-    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     if project_id is not None:
         # Get users belonging to project members
