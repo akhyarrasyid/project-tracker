@@ -1,7 +1,6 @@
 """Shared test fixtures for the entire test suite."""
 import os
 import sys
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -23,10 +22,85 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def seed_test_hierarchy(db):
+    """Seed a default department, team, user, project and membership for testing."""
+    from app.db.models.department import Department
+    from app.db.models.team import Team
+    from app.db.models.user import User
+    from app.db.models.project import Project
+    from app.db.models.project_member import ProjectMember
+    from app.core.security import get_password_hash
+
+    # Check if already seeded in this transaction to avoid duplicates
+    existing_dept = db.query(Department).filter(Department.name == "Engineering").first()
+    if existing_dept:
+        admin = db.query(User).filter(User.username == "admin").first()
+        worker = db.query(User).filter(User.username == "worker").first()
+        project = db.query(Project).filter(Project.key == "PRJ").first()
+        return {
+            "dept_id": existing_dept.id,
+            "team_id": project.team_id,
+            "admin": admin,
+            "worker": worker,
+            "project_id": project.id
+        }
+
+    dept = Department(name="Engineering", description="Engineering Dept")
+    db.add(dept)
+    db.flush()
+
+    team = Team(name="Backend Team", department_id=dept.id, description="Backend development")
+    db.add(team)
+    db.flush()
+
+    admin = User(
+        email="admin@tracker.com",
+        username="admin",
+        full_name="Administrator",
+        hashed_password=get_password_hash("password123"),
+        role="admin",
+        team_id=team.id,
+        is_active=True
+    )
+    worker = User(
+        email="worker@tracker.com",
+        username="worker",
+        full_name="Worker User",
+        hashed_password=get_password_hash("password123"),
+        role="worker",
+        team_id=team.id,
+        is_active=True
+    )
+    db.add_all([admin, worker])
+    db.flush()
+
+    project = Project(
+        name="Backend Team Project",
+        key="PRJ",
+        description="Backend project",
+        team_id=team.id,
+        status="ACTIVE"
+    )
+    db.add(project)
+    db.flush()
+
+    pm1 = ProjectMember(project_id=project.id, user_id=admin.id, project_role="OWNER")
+    pm2 = ProjectMember(project_id=project.id, user_id=worker.id, project_role="MEMBER")
+    db.add_all([pm1, pm2])
+    db.flush()
+
+    return {
+        "dept_id": dept.id,
+        "team_id": team.id,
+        "admin": admin,
+        "worker": worker,
+        "project_id": project.id
+    }
+
+
 @pytest.fixture(autouse=True)
 def setup_db():
     """Create all tables before each test, drop them after."""
-    # Import models so metadata is populated
     import app.db.models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
@@ -49,6 +123,13 @@ def db_session():
 
 @pytest.fixture
 def client(db_session):
+    from app.core.security import get_current_user
+
+    seed = seed_test_hierarchy(db_session)
+
+    def override_get_current_user():
+        return seed["admin"]
+
     def override_get_db():
         try:
             yield db_session
@@ -56,7 +137,10 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    
     with TestClient(app) as c:
+        c.seed = seed
         yield c
     app.dependency_overrides.clear()
 
@@ -68,19 +152,11 @@ VALID_TASK_PAYLOAD = {
     "description": "Default description for testing.",
     "status": "Todo",
     "priority": "Medium",
-    "department": "Engineering",
-    "team": "Backend Team",
-    "assignee": "Alice Smith",
-    "created_by": "admin",
     "due_date": "2025-12-31",
     "story_points": 3,
     "estimated_hours": 8,
     "actual_hours": 0,
     "progress_percentage": 0,
-    "attachments_count": 0,
-    "comments_count": 0,
-    "watchers_count": 1,
-    "sprint": "Sprint-1",
     "quarter": "Q4",
     "risk_level": "Low",
     "customer_impact": "None",
@@ -96,7 +172,11 @@ def make_task(client):
 
     def _make_task(**overrides):
         payload = {**VALID_TASK_PAYLOAD, **overrides}
-        resp = client.post("/api/v1/tasks/", json=payload)
+        # Pop deprecated fields
+        for f in ["department", "team", "assignee", "created_by", "sprint"]:
+            payload.pop(f, None)
+        project_id = overrides.get("project_id", client.seed["project_id"])
+        resp = client.post(f"/api/v1/tasks/?project_id={project_id}", json=payload)
         assert resp.status_code == 201, resp.text
         return resp.json()
 
