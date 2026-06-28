@@ -9,6 +9,7 @@ from app.db.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.activity_service import ActivityLoggerService
 
+STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
 STATUS_DONE = "Done"
 STATUS_BLOCKED = "Blocked"
@@ -24,7 +25,7 @@ class TaskService:
             .filter(
                 ActivityLog.task_id == task_id,
                 ActivityLog.field == "status",
-                ActivityLog.new_value != "Blocked",
+                ActivityLog.new_value != STATUS_BLOCKED,
             )
             .order_by(ActivityLog.created_at.desc())
             .first()
@@ -32,7 +33,7 @@ class TaskService:
 
         if log and log.new_value:
             return log.new_value
-        return "Todo"
+        return STATUS_TODO
 
     @staticmethod
     def validate_and_apply_status_transition(
@@ -46,11 +47,11 @@ class TaskService:
             return
 
         # Any -> Blocked is always allowed
-        if new_status == "Blocked":
+        if new_status == STATUS_BLOCKED:
             return
 
         # Blocked -> previous state
-        if old_status == "Blocked":
+        if old_status == STATUS_BLOCKED:
             prev_status = TaskService.get_last_non_blocked_status(db, task.id)
             if new_status != prev_status:
                 raise HTTPException(
@@ -61,9 +62,9 @@ class TaskService:
 
         # Allowed main transitions: Todo -> In Progress -> Review -> Done
         allowed = {
-            "Todo": {"In Progress"},
-            "In Progress": {"Review"},
-            "Review": {"Done"},
+            STATUS_TODO: {STATUS_IN_PROGRESS},
+            STATUS_IN_PROGRESS: {STATUS_REVIEW},
+            STATUS_REVIEW: {STATUS_DONE},
         }
 
         if new_status not in allowed.get(old_status, set()):
