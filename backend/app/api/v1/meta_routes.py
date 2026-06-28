@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -22,7 +22,8 @@ router = APIRouter(prefix="/meta", tags=["metadata"])
 
 @router.get("/departments", response_model=List[DepartmentResponse])
 def get_departments(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     # Admin sees all, worker sees only their own department (or let's let all users read departments to drive dropdowns)
     return db.query(Department).all()
@@ -31,8 +32,8 @@ def get_departments(
 @router.get("/teams", response_model=List[TeamResponse])
 def get_teams(
     department_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     query = db.query(Team)
     if department_id is not None:
@@ -43,8 +44,8 @@ def get_teams(
 @router.get("/projects", response_model=List[ProjectMetaResponse])
 def get_projects(
     team_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     query = db.query(Project).filter(Project.deleted_at.is_(None))
     if team_id is not None:
@@ -68,8 +69,8 @@ def get_projects(
 @router.get("/users", response_model=List[UserMetaResponse])
 def get_users(
     project_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
 ):
     if project_id is not None:
         # Get users belonging to project members

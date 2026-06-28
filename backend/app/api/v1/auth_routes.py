@@ -1,3 +1,4 @@
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=Token)
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Annotated[Session, Depends(get_db)],
 ):
     user = (
         db.query(User)
@@ -53,7 +55,7 @@ def login(
 
 
 @router.post("/refresh", response_model=Token)
-def refresh(refresh_token: str, db: Session = Depends(get_db)):
+def refresh(refresh_token: str, db: Annotated[Session, Depends(get_db)]):
     payload = decode_token(refresh_token)
     user_id = payload.get("sub")
     if not user_id:
@@ -82,5 +84,5 @@ def refresh(refresh_token: str, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserMe)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user

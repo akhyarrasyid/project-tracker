@@ -1,4 +1,4 @@
-from typing import List
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -17,7 +17,8 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 @router.get("/", response_model=List[ProjectResponse])
 def list_projects(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     if current_user.role == "admin":
         return db.query(Project).filter(Project.deleted_at.is_(None)).all()
@@ -34,8 +35,8 @@ def list_projects(
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     if current_user.role != "admin":
         raise HTTPException(
@@ -75,18 +76,18 @@ def create_project(
 @router.get("/{id}", response_model=ProjectResponse)
 def get_project(
     id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
-    project = check_project_access(db, current_user, id, min_role="VIEWER")
+    project, _ = check_project_access(db, current_user, id, min_role="VIEWER")
     return project
 
 
 @router.get("/{id}/tasks", response_model=List[TaskResponse])
 def get_project_tasks(
     id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     check_project_access(db, current_user, id, min_role="VIEWER")
     return db.query(Task).filter(Task.project_id == id, Task.deleted_at.is_(None)).all()
