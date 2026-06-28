@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 import app.db.session
 from app.db.session import get_db
 
@@ -23,6 +24,6 @@ def test_get_db(monkeypatch):
 def test_get_task_repository():
     mock_db = MagicMock()
     from app.api.dependencies import get_task_repository
+
     repo = get_task_repository(mock_db)
     assert repo is not None
-

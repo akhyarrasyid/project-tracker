@@ -1,6 +1,6 @@
 """Unit tests for Task SQLAlchemy model — defaults, nullability, constraints."""
+
 import datetime
-import pytest
 
 from app.db.models.task import Task
 from tests.conftest import seed_test_hierarchy
@@ -150,20 +150,32 @@ class TestTaskModelDefaults:
     def test_id_autoincrement(self, db_session):
         seed = seed_test_hierarchy(db_session)
         t1 = Task(
-            title="T1", description="D", project_id=seed["project_id"],
-            created_by_id=seed["admin"].id, assignee_id=seed["worker"].id,
+            title="T1",
+            description="D",
+            project_id=seed["project_id"],
+            created_by_id=seed["admin"].id,
+            assignee_id=seed["worker"].id,
             due_date=datetime.date(2025, 12, 31),
-            story_points=1, estimated_hours=1,
-            quarter="Q1", risk_level="Low",
-            customer_impact="None", sla_hours=24,
+            story_points=1,
+            estimated_hours=1,
+            quarter="Q1",
+            risk_level="Low",
+            customer_impact="None",
+            sla_hours=24,
         )
         t2 = Task(
-            title="T2", description="D", project_id=seed["project_id"],
-            created_by_id=seed["admin"].id, assignee_id=seed["worker"].id,
+            title="T2",
+            description="D",
+            project_id=seed["project_id"],
+            created_by_id=seed["admin"].id,
+            assignee_id=seed["worker"].id,
             due_date=datetime.date(2025, 12, 31),
-            story_points=1, estimated_hours=1,
-            quarter="Q1", risk_level="Low",
-            customer_impact="None", sla_hours=24,
+            story_points=1,
+            estimated_hours=1,
+            quarter="Q1",
+            risk_level="Low",
+            customer_impact="None",
+            sla_hours=24,
         )
         db_session.add_all([t1, t2])
         db_session.commit()
@@ -173,13 +185,18 @@ class TestTaskModelDefaults:
     def test_json_fields_persist_correctly(self, db_session):
         seed = seed_test_hierarchy(db_session)
         task = Task(
-            title="JSON Test", description="D",
-            project_id=seed["project_id"], created_by_id=seed["admin"].id,
+            title="JSON Test",
+            description="D",
+            project_id=seed["project_id"],
+            created_by_id=seed["admin"].id,
             assignee_id=seed["worker"].id,
             due_date=datetime.date(2025, 12, 31),
-            story_points=2, estimated_hours=4,
-            quarter="Q2", risk_level="Medium",
-            customer_impact="Low", sla_hours=72,
+            story_points=2,
+            estimated_hours=4,
+            quarter="Q2",
+            risk_level="Medium",
+            customer_impact="Low",
+            sla_hours=72,
             dependencies=[1, 2, 3],
             tags=["backend", "api"],
         )

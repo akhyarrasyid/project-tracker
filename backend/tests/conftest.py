@@ -1,6 +1,8 @@
 """Shared test fixtures for the entire test suite."""
+
 import os
 import sys
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -24,15 +26,17 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 def seed_test_hierarchy(db):
     """Seed a default department, team, user, project and membership for testing."""
+    from app.core.security import get_password_hash
     from app.db.models.department import Department
-    from app.db.models.team import Team
-    from app.db.models.user import User
     from app.db.models.project import Project
     from app.db.models.project_member import ProjectMember
-    from app.core.security import get_password_hash
+    from app.db.models.team import Team
+    from app.db.models.user import User
 
     # Check if already seeded in this transaction to avoid duplicates
-    existing_dept = db.query(Department).filter(Department.name == "Engineering").first()
+    existing_dept = (
+        db.query(Department).filter(Department.name == "Engineering").first()
+    )
     if existing_dept:
         admin = db.query(User).filter(User.username == "admin").first()
         worker = db.query(User).filter(User.username == "worker").first()
@@ -42,14 +46,16 @@ def seed_test_hierarchy(db):
             "team_id": project.team_id,
             "admin": admin,
             "worker": worker,
-            "project_id": project.id
+            "project_id": project.id,
         }
 
     dept = Department(name="Engineering", description="Engineering Dept")
     db.add(dept)
     db.flush()
 
-    team = Team(name="Backend Team", department_id=dept.id, description="Backend development")
+    team = Team(
+        name="Backend Team", department_id=dept.id, description="Backend development"
+    )
     db.add(team)
     db.flush()
 
@@ -60,7 +66,7 @@ def seed_test_hierarchy(db):
         hashed_password=get_password_hash("password123"),
         role="admin",
         team_id=team.id,
-        is_active=True
+        is_active=True,
     )
     worker = User(
         email="worker@tracker.com",
@@ -69,7 +75,7 @@ def seed_test_hierarchy(db):
         hashed_password=get_password_hash("password123"),
         role="worker",
         team_id=team.id,
-        is_active=True
+        is_active=True,
     )
     db.add_all([admin, worker])
     db.flush()
@@ -79,7 +85,7 @@ def seed_test_hierarchy(db):
         key="PRJ",
         description="Backend project",
         team_id=team.id,
-        status="ACTIVE"
+        status="ACTIVE",
     )
     db.add(project)
     db.flush()
@@ -94,7 +100,7 @@ def seed_test_hierarchy(db):
         "team_id": team.id,
         "admin": admin,
         "worker": worker,
-        "project_id": project.id
+        "project_id": project.id,
     }
 
 
@@ -138,16 +144,17 @@ def client(db_session):
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    
+
     with TestClient(app) as c:
         original_post = c.post
+
         def wrapped_post(url, *args, **kwargs):
             if url == "/api/v1/tasks/" or url == "/api/v1/tasks":
                 if "?" not in url:
                     url = f"{url}?project_id={seed['project_id']}"
                 elif "project_id" not in url:
                     url = f"{url}&project_id={seed['project_id']}"
-                    
+
                 # Strip deprecated fields from JSON body if present
                 if "json" in kwargs and isinstance(kwargs["json"], dict):
                     # Copy to avoid mutating original test data structures
@@ -155,7 +162,7 @@ def client(db_session):
                     for f in ["department", "team", "assignee", "created_by", "sprint"]:
                         kwargs["json"].pop(f, None)
             return original_post(url, *args, **kwargs)
-            
+
         c.post = wrapped_post
         c.seed = seed
         yield c
@@ -194,22 +201,26 @@ def make_task(client, db_session):
         if "department" in overrides:
             dept_name = overrides["department"]
             from app.db.models.department import Department
-            from app.db.models.team import Team
             from app.db.models.project import Project
             from app.db.models.project_member import ProjectMember
-            
+            from app.db.models.team import Team
+
             dept = db.query(Department).filter(Department.name == dept_name).first()
             if not dept:
                 dept = Department(name=dept_name, description=f"{dept_name} Dept")
                 db.add(dept)
                 db.flush()
-                
+
             team = db.query(Team).filter(Team.department_id == dept.id).first()
             if not team:
-                team = Team(name=f"{dept_name} Team", department_id=dept.id, description=f"{dept_name} team")
+                team = Team(
+                    name=f"{dept_name} Team",
+                    department_id=dept.id,
+                    description=f"{dept_name} team",
+                )
                 db.add(team)
                 db.flush()
-                
+
             project = db.query(Project).filter(Project.team_id == team.id).first()
             if not project:
                 key = dept_name[:3].upper()
@@ -217,25 +228,32 @@ def make_task(client, db_session):
                     name=f"{dept_name} Project",
                     key=key,
                     team_id=team.id,
-                    status="ACTIVE"
+                    status="ACTIVE",
                 )
                 db.add(project)
                 db.flush()
-                
+
                 admin = client.seed["admin"]
-                pm = ProjectMember(project_id=project.id, user_id=admin.id, project_role="OWNER")
+                pm = ProjectMember(
+                    project_id=project.id, user_id=admin.id, project_role="OWNER"
+                )
                 db.add(pm)
                 db.flush()
-                
+
             project_id = project.id
 
         assignee_id = None
         if "assignee" in overrides:
             assignee_name = overrides["assignee"]
             from app.db.models.user import User
-            user = db.query(User).filter(
-                (User.full_name == assignee_name) | (User.username == assignee_name)
-            ).first()
+
+            user = (
+                db.query(User)
+                .filter(
+                    (User.full_name == assignee_name) | (User.username == assignee_name)
+                )
+                .first()
+            )
             if not user:
                 username = assignee_name.lower().replace(" ", "_")
                 email = f"{username}@tracker.com"
@@ -246,7 +264,7 @@ def make_task(client, db_session):
                     hashed_password="password123",
                     role="worker",
                     team_id=client.seed["team_id"],
-                    is_active=True
+                    is_active=True,
                 )
                 db.add(user)
                 db.flush()
@@ -259,7 +277,7 @@ def make_task(client, db_session):
         # Pop deprecated fields
         for f in ["department", "team", "assignee", "created_by", "sprint"]:
             payload.pop(f, None)
-            
+
         resp = client.post(f"/api/v1/tasks/?project_id={project_id}", json=payload)
         assert resp.status_code == 201, resp.text
         return resp.json()

@@ -1,5 +1,4 @@
 """E2E tests for GET /api/v1/tasks/ — list, pagination, filtering, search, sort."""
-import pytest
 
 
 class TestListTasksBasic:
@@ -38,13 +37,33 @@ class TestListTasksBasic:
         make_task()
         task = client.get("/api/v1/tasks/").json()["items"][0]
         required = [
-            "id", "title", "description", "status", "priority",
-            "department", "team", "assignee", "created_by",
-            "created_at", "updated_at", "due_date", "completed_at",
-            "story_points", "estimated_hours", "actual_hours",
-            "progress_percentage", "attachments_count", "comments_count",
-            "watchers_count", "sprint", "quarter", "risk_level",
-            "customer_impact", "sla_hours", "dependencies", "tags",
+            "id",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "department",
+            "team",
+            "assignee",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "due_date",
+            "completed_at",
+            "story_points",
+            "estimated_hours",
+            "actual_hours",
+            "progress_percentage",
+            "attachments_count",
+            "comments_count",
+            "watchers_count",
+            "sprint",
+            "quarter",
+            "risk_level",
+            "customer_impact",
+            "sla_hours",
+            "dependencies",
+            "tags",
         ]
         for field in required:
             assert field in task, f"Missing field: {field}"
@@ -67,8 +86,12 @@ class TestListTasksPagination:
     def test_page_two_returns_different_items(self, client, make_task):
         for i in range(10):
             make_task(title=f"Task {i}")
-        p1 = set(t["id"] for t in client.get("/api/v1/tasks/?page=1&size=5").json()["items"])
-        p2 = set(t["id"] for t in client.get("/api/v1/tasks/?page=2&size=5").json()["items"])
+        p1 = set(
+            t["id"] for t in client.get("/api/v1/tasks/?page=1&size=5").json()["items"]
+        )
+        p2 = set(
+            t["id"] for t in client.get("/api/v1/tasks/?page=2&size=5").json()["items"]
+        )
         assert not p1.intersection(p2)
 
     def test_pages_count_is_correct(self, client, make_task):

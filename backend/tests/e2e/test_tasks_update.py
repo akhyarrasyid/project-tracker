@@ -1,6 +1,6 @@
 """E2E tests for PUT /api/v1/tasks/{id} — update task."""
+
 import time
-import pytest
 
 
 class TestUpdateTask:
@@ -27,7 +27,9 @@ class TestUpdateTask:
 
     def test_update_progress_percentage(self, client, make_task):
         task = make_task()
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={"progress_percentage": 75})
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}", json={"progress_percentage": 75}
+        )
         assert resp.json()["progress_percentage"] == 75
 
     def test_partial_update_leaves_other_fields(self, client, make_task):
@@ -108,5 +110,7 @@ class TestUpdateTask:
     def test_update_id_in_body_is_ignored(self, client, make_task):
         task = make_task()
         original_id = task["id"]
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={"id": 9999, "title": "Sneaky"})
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}", json={"id": 9999, "title": "Sneaky"}
+        )
         assert resp.json()["id"] == original_id

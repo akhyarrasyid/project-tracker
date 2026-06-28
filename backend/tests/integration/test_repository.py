@@ -1,25 +1,25 @@
 """Integration tests for TaskRepository — CRUD, pagination, filtering, sorting, search."""
-import datetime
-import pytest
 
-from app.db.models.task import Task
+import datetime
+
 from app.db.models.sprint import Sprint
+from app.db.models.task import Task
 from app.db.repositories.task_repository import TaskRepository
-from app.schemas.task import TaskCreate, TaskUpdate
+from app.schemas.task import TaskUpdate
 from tests.conftest import seed_test_hierarchy
 
 
 def create(db, **overrides):
     seed = seed_test_hierarchy(db)
-    
+
     # Extract project_id and assignee_id
     project_id = overrides.pop("project_id", seed["project_id"])
     assignee_id = overrides.pop("assignee_id", seed["worker"].id)
-    
+
     # Pop deprecated fields
     for f in ["department", "team", "assignee", "created_by", "sprint"]:
         overrides.pop(f, None)
-        
+
     data = {
         "title": "Repo Task",
         "description": "Test.",
@@ -35,7 +35,7 @@ def create(db, **overrides):
         "assignee_id": assignee_id,
     }
     data.update(overrides)
-    
+
     # In order to satisfy the service layer or repo expectations,
     # let's create the Task directly using Task(...) or TaskRepository.create
     # but wait, TaskRepository.create expects a TaskCreate schema.
@@ -68,11 +68,7 @@ def create(db, **overrides):
     # Let's check: we can use TaskService.create_task in our integration tests or directly set it on Task model.
     # Let's write the integration test using direct Task model construction for simple repository tests, or let TaskRepository.create accept them.
     # Actually, constructing Task model directly and adding to db is very simple:
-    task = Task(
-        project_id=project_id,
-        created_by_id=seed["admin"].id,
-        **data
-    )
+    task = Task(project_id=project_id, created_by_id=seed["admin"].id, **data)
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -181,8 +177,12 @@ class TestRepositoryListPagination:
     def test_second_page_returns_next_batch(self, db_session):
         for i in range(10):
             create(db_session, title=f"Task {i}")
-        p1, _ = TaskRepository.list(db_session, page=1, size=5, sort_by="id", sort_order="asc")
-        p2, _ = TaskRepository.list(db_session, page=2, size=5, sort_by="id", sort_order="asc")
+        p1, _ = TaskRepository.list(
+            db_session, page=1, size=5, sort_by="id", sort_order="asc"
+        )
+        p2, _ = TaskRepository.list(
+            db_session, page=2, size=5, sort_by="id", sort_order="asc"
+        )
         ids1 = {t.id for t in p1}
         ids2 = {t.id for t in p2}
         assert not ids1.intersection(ids2)
@@ -239,7 +239,7 @@ class TestRepositoryListFiltering:
             project_id=seed["project_id"],
             name="Sprint-1",
             start_date=datetime.datetime.now(),
-            end_date=datetime.datetime.now()
+            end_date=datetime.datetime.now(),
         )
         db_session.add(sprint)
         db_session.flush()
@@ -309,14 +309,14 @@ class TestRepositoryBulk:
                 "description": "D",
                 "project_id": seed["project_id"],
                 "created_by_id": seed["admin"].id,
-                "due_date": datetime.date(2025, 12, 31)
+                "due_date": datetime.date(2025, 12, 31),
             },
             {
                 "title": "Bulk 2",
                 "description": "D",
                 "project_id": seed["project_id"],
                 "created_by_id": seed["admin"].id,
-                "due_date": datetime.date(2025, 12, 31)
+                "due_date": datetime.date(2025, 12, 31),
             },
         ]
         count = TaskRepository.bulk_create(db_session, data)

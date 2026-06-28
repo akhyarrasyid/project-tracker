@@ -1,5 +1,4 @@
 """E2E tests for POST /api/v1/tasks/ — create task."""
-import pytest
 
 
 class TestCreateTask:
@@ -38,40 +37,63 @@ class TestCreateTask:
             assert task["story_points"] == sp
 
     def test_create_invalid_story_points_returns_422(self, client, make_task):
-        resp = client.post("/api/v1/tasks/", json={
-            **{k: v for k, v in make_task.__self__.__dict__.items() if k != "story_points"},
-            "story_points": 4,
-        }) if False else None
+        resp = (
+            client.post(
+                "/api/v1/tasks/",
+                json={
+                    **{
+                        k: v
+                        for k, v in make_task.__self__.__dict__.items()
+                        if k != "story_points"
+                    },
+                    "story_points": 4,
+                },
+            )
+            if False
+            else None
+        )
         # Use conftest payload directly
         from tests.conftest import VALID_TASK_PAYLOAD
+
         payload = {**VALID_TASK_PAYLOAD, "story_points": 4}
         resp = client.post("/api/v1/tasks/", json=payload)
         assert resp.status_code == 422
 
     def test_create_missing_title_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         payload = {k: v for k, v in VALID_TASK_PAYLOAD.items() if k != "title"}
         resp = client.post("/api/v1/tasks/", json=payload)
         assert resp.status_code == 422
 
     def test_create_empty_title_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": ""})
         assert resp.status_code == 422
 
     def test_create_title_too_long_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "x" * 256})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "x" * 256}
+        )
         assert resp.status_code == 422
 
     def test_create_invalid_status_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "InvalidStatus"})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "InvalidStatus"}
+        )
         assert resp.status_code == 422
 
     def test_create_invalid_sla_hours_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "sla_hours": 36})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "sla_hours": 36}
+        )
         assert resp.status_code == 422
 
     def test_create_tags_stored_correctly(self, client, make_task):
@@ -88,6 +110,7 @@ class TestCreateTask:
 
     def test_create_extra_fields_ignored(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         payload = {**VALID_TASK_PAYLOAD, "hacker_field": "DROP TABLE tasks;"}
         resp = client.post("/api/v1/tasks/", json=payload)
         assert resp.status_code == 201

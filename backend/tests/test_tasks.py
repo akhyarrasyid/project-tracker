@@ -1,10 +1,9 @@
 """
-Migrated test suite — all 80 original tests updated for /api/v1/tasks/ 
+Migrated test suite — all 80 original tests updated for /api/v1/tasks/
 with 26-field task payloads.
 """
-import pytest
-import time
 
+import time
 
 # ---------------------------------------------------------------------------
 # Tests for GET /api/v1/tasks/
@@ -83,6 +82,7 @@ class TestGetTasks:
 
     def test_get_tasks_created_at_is_valid_datetime(self, client, make_task):
         from datetime import datetime
+
         make_task()
         dt_str = client.get("/api/v1/tasks/").json()["items"][0]["created_at"]
         datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
@@ -134,23 +134,31 @@ class TestCreateTask:
 
     def test_create_task_empty_title_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": ""})
         assert resp.status_code == 422
 
     def test_create_task_missing_title_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         payload = {k: v for k, v in VALID_TASK_PAYLOAD.items() if k != "title"}
         resp = client.post("/api/v1/tasks/", json=payload)
         assert resp.status_code == 422
 
     def test_create_task_whitespace_only_title_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "   "})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "   "}
+        )
         assert resp.status_code in (201, 422)
 
     def test_create_task_title_too_long_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "x" * 256})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "title": "x" * 256}
+        )
         assert resp.status_code == 422
 
     def test_create_task_title_max_length_exactly_allowed(self, client, make_task):
@@ -167,16 +175,23 @@ class TestCreateTask:
 
     def test_create_task_invalid_status_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "InvalidStatus"})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "InvalidStatus"}
+        )
         assert resp.status_code == 422
 
     def test_create_task_status_case_sensitive(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "todo"})
+
+        resp = client.post(
+            "/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": "todo"}
+        )
         assert resp.status_code == 422
 
     def test_create_task_status_numeric_returns_422(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
+
         resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "status": 1})
         assert resp.status_code == 422
 
@@ -186,7 +201,11 @@ class TestCreateTask:
 
     def test_create_task_extra_fields_are_ignored(self, client):
         from tests.conftest import VALID_TASK_PAYLOAD
-        resp = client.post("/api/v1/tasks/", json={**VALID_TASK_PAYLOAD, "hacker_field": "DROP TABLE tasks;"})
+
+        resp = client.post(
+            "/api/v1/tasks/",
+            json={**VALID_TASK_PAYLOAD, "hacker_field": "DROP TABLE tasks;"},
+        )
         assert resp.status_code == 201
         assert "hacker_field" not in resp.json()
 
@@ -202,12 +221,16 @@ class TestCreateTask:
         task = make_task(title="タスク 🎯 مهمة")
         assert task["title"] == "タスク 🎯 مهمة"
 
-    def test_create_task_title_with_html_is_stored_as_plain_text(self, client, make_task):
+    def test_create_task_title_with_html_is_stored_as_plain_text(
+        self, client, make_task
+    ):
         xss = "<script>alert('xss')</script>"
         task = make_task(title=xss)
         assert task["title"] == xss
 
-    def test_create_task_title_with_sql_injection_stored_safely(self, client, make_task):
+    def test_create_task_title_with_sql_injection_stored_safely(
+        self, client, make_task
+    ):
         sqli = "'; DROP TABLE task; --"
         task = make_task(title=sqli)
         assert task["title"] == sqli
@@ -240,7 +263,9 @@ class TestUpdateTask:
 
     def test_update_description(self, client, make_task):
         task = make_task(description="Old desc")
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={"description": "New desc"})
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}", json={"description": "New desc"}
+        )
         assert resp.json()["description"] == "New desc"
 
     def test_update_status_todo_to_in_progress(self, client, make_task):
@@ -260,11 +285,14 @@ class TestUpdateTask:
 
     def test_update_multiple_fields_at_once(self, client, make_task):
         task = make_task(title="Old", description="Old desc", status="Todo")
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={
-            "title": "New",
-            "description": "New desc",
-            "status": "Done",
-        })
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}",
+            json={
+                "title": "New",
+                "description": "New desc",
+                "status": "Done",
+            },
+        )
         body = resp.json()
         assert body["title"] == "New"
         assert body["description"] == "New desc"
@@ -274,7 +302,14 @@ class TestUpdateTask:
         task = make_task()
         resp = client.put(f"/api/v1/tasks/{task['id']}", json={"title": "Updated"})
         body = resp.json()
-        for field in ("id", "title", "description", "status", "created_at", "updated_at"):
+        for field in (
+            "id",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ):
             assert field in body
 
     def test_update_persists_to_db(self, client, make_task):
@@ -284,7 +319,9 @@ class TestUpdateTask:
         assert updated["title"] == "After"
 
     def test_update_only_specified_fields_are_changed(self, client, make_task):
-        task = make_task(title="Original Title", description="Original Desc", status="Todo")
+        task = make_task(
+            title="Original Title", description="Original Desc", status="Todo"
+        )
         client.put(f"/api/v1/tasks/{task['id']}", json={"status": "Done"})
         updated = client.get(f"/api/v1/tasks/{task['id']}").json()
         assert updated["title"] == "Original Title"
@@ -366,14 +403,18 @@ class TestUpdateTask:
 
     def test_update_extra_fields_are_ignored(self, client, make_task):
         task = make_task()
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={"title": "Valid", "injected": "evil"})
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}", json={"title": "Valid", "injected": "evil"}
+        )
         assert resp.status_code == 200
         assert "injected" not in resp.json()
 
     def test_update_id_field_in_body_is_ignored(self, client, make_task):
         task = make_task()
         original_id = task["id"]
-        resp = client.put(f"/api/v1/tasks/{task['id']}", json={"id": 9999, "title": "Sneaky"})
+        resp = client.put(
+            f"/api/v1/tasks/{task['id']}", json={"id": 9999, "title": "Sneaky"}
+        )
         assert resp.json()["id"] == original_id
 
 

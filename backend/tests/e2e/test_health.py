@@ -1,5 +1,4 @@
 """E2E tests for GET /api/v1/tasks/{id}, /health, /readiness."""
-import pytest
 
 
 class TestGetTaskById:
@@ -19,13 +18,33 @@ class TestGetTaskById:
         resp = client.get(f"/api/v1/tasks/{task['id']}")
         body = resp.json()
         for field in [
-            "id", "title", "description", "status", "priority",
-            "department", "team", "assignee", "created_by",
-            "created_at", "updated_at", "due_date", "completed_at",
-            "story_points", "estimated_hours", "actual_hours",
-            "progress_percentage", "attachments_count", "comments_count",
-            "watchers_count", "sprint", "quarter", "risk_level",
-            "customer_impact", "sla_hours", "dependencies", "tags",
+            "id",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "department",
+            "team",
+            "assignee",
+            "created_by",
+            "created_at",
+            "updated_at",
+            "due_date",
+            "completed_at",
+            "story_points",
+            "estimated_hours",
+            "actual_hours",
+            "progress_percentage",
+            "attachments_count",
+            "comments_count",
+            "watchers_count",
+            "sprint",
+            "quarter",
+            "risk_level",
+            "customer_impact",
+            "sla_hours",
+            "dependencies",
+            "tags",
         ]:
             assert field in body, f"Missing field: {field}"
 

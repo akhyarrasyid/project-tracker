@@ -1,14 +1,13 @@
 """Unit tests for the seed service."""
+
 import argparse
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
 
 from app.db.models.task import Task
 from app.services import seed_service
-from tests.conftest import TestingSessionLocal, VALID_TASK_PAYLOAD
+from tests.conftest import VALID_TASK_PAYLOAD
 
 
 @pytest.fixture(autouse=True)
@@ -16,10 +15,12 @@ def mock_session_local(monkeypatch, db_session):
     class MockSessionLocal:
         def __init__(self):
             pass
+
         def __getattr__(self, name):
             if name == "close":
                 return lambda: None
             return getattr(db_session, name)
+
     monkeypatch.setattr("app.services.seed_service.SessionLocal", MockSessionLocal)
 
 
@@ -35,7 +36,12 @@ def mock_records():
 def mock_invalid_records():
     return [
         {**VALID_TASK_PAYLOAD, "id": 1, "title": "Task 1"},
-        {**VALID_TASK_PAYLOAD, "id": 2, "title": "", "story_points": 4},  # empty title & invalid SP
+        {
+            **VALID_TASK_PAYLOAD,
+            "id": 2,
+            "title": "",
+            "story_points": 4,
+        },  # empty title & invalid SP
     ]
 
 
@@ -126,7 +132,6 @@ def test_cmd_reset_success(mock_records, db_session):
     assert db_session.query(Task).count() == 2
 
 
-
 def test_cmd_reset_db_error(mock_records, monkeypatch):
     def mock_delete(*args, **kwargs):
         raise Exception("Delete Error")
@@ -140,7 +145,10 @@ def test_cmd_reset_db_error(mock_records, monkeypatch):
 
 
 def test_load_seed_data_missing_file(monkeypatch):
-    monkeypatch.setattr("app.services.seed_service.SEED_FILE", seed_service.Path("nonexistent_file.json"))
+    monkeypatch.setattr(
+        "app.services.seed_service.SEED_FILE",
+        seed_service.Path("nonexistent_file.json"),
+    )
     with pytest.raises(SystemExit) as excinfo:
         seed_service._load_seed_data()
     assert excinfo.value.code == 1
@@ -157,7 +165,9 @@ def test_load_seed_data_success():
 @patch("app.services.seed_service.cmd_validate")
 def test_main_validate(mock_cmd_validate, mock_load, mock_parse, mock_records):
     mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(validate=True, dry_run=False, seed=False, reset=False)
+    mock_parse.return_value = argparse.Namespace(
+        validate=True, dry_run=False, seed=False, reset=False
+    )
     seed_service.main()
     mock_cmd_validate.assert_called_once_with(mock_records)
 
@@ -167,7 +177,9 @@ def test_main_validate(mock_cmd_validate, mock_load, mock_parse, mock_records):
 @patch("app.services.seed_service.cmd_dry_run")
 def test_main_dry_run(mock_cmd_dry_run, mock_load, mock_parse, mock_records):
     mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(validate=False, dry_run=True, seed=False, reset=False)
+    mock_parse.return_value = argparse.Namespace(
+        validate=False, dry_run=True, seed=False, reset=False
+    )
     seed_service.main()
     mock_cmd_dry_run.assert_called_once_with(mock_records)
 
@@ -177,7 +189,9 @@ def test_main_dry_run(mock_cmd_dry_run, mock_load, mock_parse, mock_records):
 @patch("app.services.seed_service.cmd_seed")
 def test_main_seed(mock_cmd_seed, mock_load, mock_parse, mock_records):
     mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(validate=False, dry_run=False, seed=True, reset=False)
+    mock_parse.return_value = argparse.Namespace(
+        validate=False, dry_run=False, seed=True, reset=False
+    )
     seed_service.main()
     mock_cmd_seed.assert_called_once_with(mock_records)
 
@@ -187,6 +201,8 @@ def test_main_seed(mock_cmd_seed, mock_load, mock_parse, mock_records):
 @patch("app.services.seed_service.cmd_reset")
 def test_main_reset(mock_cmd_reset, mock_load, mock_parse, mock_records):
     mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(validate=False, dry_run=False, seed=False, reset=True)
+    mock_parse.return_value = argparse.Namespace(
+        validate=False, dry_run=False, seed=False, reset=True
+    )
     seed_service.main()
     mock_cmd_reset.assert_called_once_with(mock_records)

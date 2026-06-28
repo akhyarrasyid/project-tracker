@@ -1,5 +1,4 @@
 """E2E tests for DELETE /api/v1/tasks/{id}."""
-import pytest
 
 
 class TestDeleteTask:

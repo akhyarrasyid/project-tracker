@@ -1,11 +1,13 @@
 """Unit tests for all 5 enums and their values."""
+
 import pytest
+
 from app.schemas.task import (
-    TaskStatus,
-    TaskPriority,
-    RiskLevel,
     CustomerImpact,
     Quarter,
+    RiskLevel,
+    TaskPriority,
+    TaskStatus,
 )
 
 

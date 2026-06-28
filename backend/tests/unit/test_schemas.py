@@ -1,10 +1,9 @@
 """Unit tests for TaskCreate and TaskUpdate schema validation."""
-import datetime
+
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.task import TaskCreate, TaskUpdate, TaskStatus, TaskPriority
-
+from app.schemas.task import TaskCreate, TaskStatus, TaskUpdate
 
 # ── Minimal valid payload ──────────────────────────────────────────────────────
 
@@ -216,4 +215,3 @@ class TestTaskUpdatePartial:
     def test_update_four_tags_ok(self):
         u = TaskUpdate(tags=["a", "b", "c", "d"])
         assert len(u.tags) == 4
-
