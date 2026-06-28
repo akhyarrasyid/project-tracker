@@ -392,7 +392,7 @@ describe("TaskBoard Application", () => {
     
     // Simulate drop event
     const dataTransfer = {
-      data: { "text/plain": "1" },
+      data: { "text/plain": "1" } as Record<string, string>,
       setData(type: string, val: string) {
         this.data[type] = val;
       },
