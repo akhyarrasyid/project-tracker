@@ -12,7 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     func
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
@@ -21,6 +21,35 @@ class Task(Base):
     """Task aggregate root — evolved with normalization and project association."""
 
     __tablename__ = "tasks"
+
+    project = relationship("Project", foreign_keys="Task.project_id", lazy="joined")
+    sprint_relation = relationship("Sprint", foreign_keys="Task.sprint_id", lazy="joined")
+    assignee_relation = relationship("User", foreign_keys="Task.assignee_id", lazy="joined")
+    creator = relationship("User", foreign_keys="Task.created_by_id", lazy="joined")
+
+    @property
+    def department(self) -> Optional[str]:
+        if self.project and self.project.team and self.project.team.department:
+            return self.project.team.department.name
+        return None
+
+    @property
+    def team(self) -> Optional[str]:
+        if self.project and self.project.team:
+            return self.project.team.name
+        return None
+
+    @property
+    def assignee(self) -> Optional[str]:
+        return self.assignee_relation.full_name if self.assignee_relation else None
+
+    @property
+    def created_by(self) -> str:
+        return self.creator.username if self.creator else "admin"
+
+    @property
+    def sprint(self) -> Optional[str]:
+        return self.sprint_relation.name if self.sprint_relation else None
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     project_id: Mapped[int] = mapped_column(
