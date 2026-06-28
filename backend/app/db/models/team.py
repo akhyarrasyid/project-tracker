@@ -1,11 +1,13 @@
 import datetime
 from typing import Optional
 from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 class Team(Base):
     __tablename__ = "teams"
+
+    department = relationship("Department", lazy="joined")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
