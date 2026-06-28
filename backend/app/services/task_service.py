@@ -22,9 +22,9 @@ class TaskService:
             return log.new_value
         return "Todo"
 
-    @classmethod
+    @staticmethod
     def validate_and_apply_status_transition(
-        cls, db: Session, task: Task, new_status: str, actor_id: int
+        db: Session, task: Task, new_status: str, actor_id: int
     ) -> None:
         old_status = task.status
         if old_status == new_status:
@@ -36,7 +36,7 @@ class TaskService:
 
         # Blocked -> previous state
         if old_status == "Blocked":
-            prev_status = cls.get_last_non_blocked_status(db, task.id)
+            prev_status = TaskService.get_last_non_blocked_status(db, task.id)
             if new_status != prev_status:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -51,14 +51,13 @@ class TaskService:
             "Review": {"Done"},
         }
         
-        # Admin can bypass transitions or we can let anyone follow the strict workflow
         if new_status not in allowed.get(old_status, set()):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status transition from '{old_status}' to '{new_status}'."
             )
 
-    @classmethod
+    @staticmethod
     def create_task(db: Session, project_id: int, task_in: TaskCreate, creator_id: int) -> Task:
         data = task_in.model_dump()
         
@@ -93,7 +92,7 @@ class TaskService:
         )
         return task
 
-    @classmethod
+    @staticmethod
     def update_task(db: Session, task: Task, task_in: TaskUpdate, actor_id: int) -> Task:
         updates = task_in.model_dump(exclude_unset=True)
         
@@ -109,7 +108,7 @@ class TaskService:
 
         # Enforce transitions
         if "status" in updates:
-            cls.validate_and_apply_status_transition(db, task, new_status, actor_id)
+            TaskService.validate_and_apply_status_transition(db, task, new_status, actor_id)
 
         # Auto sync: status Done -> progress 100%
         if "status" in updates and new_status == "Done":
@@ -164,7 +163,7 @@ class TaskService:
 
         return task
 
-    @classmethod
+    @staticmethod
     def soft_delete_task(db: Session, task: Task, actor_id: int) -> None:
         task.deleted_at = datetime.datetime.now(datetime.timezone.utc)
         task.deleted_by_id = actor_id
