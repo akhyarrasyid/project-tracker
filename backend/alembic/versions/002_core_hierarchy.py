@@ -8,8 +8,8 @@ Create Date: 2026-06-28 08:30:00.000000
 import datetime
 from typing import Dict, Sequence, Union
 
-import sqlalchemy as sa
 import bcrypt
+import sqlalchemy as sa
 
 from alembic import op
 
@@ -667,15 +667,19 @@ def downgrade() -> None:
 
     # 2. Add back legacy columns to tasks table
     with op.batch_alter_table("tasks") as batch_op:
-        batch_op.add_column(sa.Column("department", sa.String(length=100), nullable=True))
+        batch_op.add_column(
+            sa.Column("department", sa.String(length=100), nullable=True)
+        )
         batch_op.add_column(sa.Column("team", sa.String(length=100), nullable=True))
         batch_op.add_column(sa.Column("assignee", sa.String(length=255), nullable=True))
-        batch_op.add_column(sa.Column("created_by", sa.String(length=255), nullable=True))
+        batch_op.add_column(
+            sa.Column("created_by", sa.String(length=255), nullable=True)
+        )
         batch_op.add_column(sa.Column("sprint", sa.String(length=50), nullable=True))
 
     # 3. Data Migration (Backwards)
     connection = op.get_bind()
-    
+
     # Query to map back the relationships
     mapped_data = connection.execute(
         sa.text(
@@ -704,7 +708,7 @@ def downgrade() -> None:
                 "creator": row[4],
                 "sprint": row[5],
                 "task_id": row[0],
-            }
+            },
         )
 
     # 4. Drop all the new tables
@@ -733,4 +737,3 @@ def downgrade() -> None:
         batch_op.drop_column("completed_by_id")
         batch_op.drop_column("deleted_at")
         batch_op.drop_column("deleted_by_id")
-

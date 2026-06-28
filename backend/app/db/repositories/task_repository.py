@@ -53,7 +53,12 @@ class TaskRepository:
     @staticmethod
     def _apply_joins(q, filters: Any):
         joined_team = False
-        if filters.team_id or filters.department_id or filters.department or filters.team:
+        if (
+            filters.team_id
+            or filters.department_id
+            or filters.department
+            or filters.team
+        ):
             q = q.join(Project, Task.project_id == Project.id)
         if filters.department_id or filters.department:
             q = q.join(Team, Project.team_id == Team.id)
@@ -97,7 +102,12 @@ class TaskRepository:
         if filters.assignee:
             from app.db.models.user import User
 
-            q = q.filter(or_(User.full_name == filters.assignee, User.username == filters.assignee))
+            q = q.filter(
+                or_(
+                    User.full_name == filters.assignee,
+                    User.username == filters.assignee,
+                )
+            )
         if filters.team:
             q = q.filter(Team.name == filters.team)
         if filters.sprint:

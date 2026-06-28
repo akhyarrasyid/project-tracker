@@ -91,7 +91,9 @@ class TaskService:
             data["status"] = STATUS_IN_PROGRESS
 
     @staticmethod
-    def _sync_status_and_progress_update(updates: dict, task: Task, actor_id: int) -> None:
+    def _sync_status_and_progress_update(
+        updates: dict, task: Task, actor_id: int
+    ) -> None:
         old_status = task.status
         new_status = updates.get("status", old_status)
         new_progress = updates.get("progress_percentage", task.progress_percentage)
@@ -114,7 +116,11 @@ class TaskService:
                 updates["status"] = STATUS_IN_PROGRESS
 
         # Clean completed fields if transitioned back from Done
-        if "status" in updates and new_status != STATUS_DONE and old_status == STATUS_DONE:
+        if (
+            "status" in updates
+            and new_status != STATUS_DONE
+            and old_status == STATUS_DONE
+        ):
             updates["completed_at"] = None
             updates["completed_by_id"] = None
 
