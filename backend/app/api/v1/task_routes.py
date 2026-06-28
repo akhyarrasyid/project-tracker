@@ -36,6 +36,10 @@ class TaskFilterParams:
         search: Annotated[Optional[str], Query(description="Search title and description")] = None,
         sort_by: Annotated[str, Query(description="Field to sort by")] = "created_at",
         sort_order: Annotated[str, Query(pattern="^(asc|desc)$")] = "desc",
+        department: Annotated[Optional[str], Query()] = None,
+        assignee: Annotated[Optional[str], Query()] = None,
+        team: Annotated[Optional[str], Query()] = None,
+        sprint: Annotated[Optional[str], Query()] = None,
     ):
         self.page = page
         self.size = size
@@ -51,6 +55,10 @@ class TaskFilterParams:
         self.search = search
         self.sort_by = sort_by
         self.sort_order = sort_order
+        self.department = department
+        self.assignee = assignee
+        self.team = team
+        self.sprint = sprint
 
 
 # ── GET /tasks ────────────────────────────────────────────────────────────────
@@ -97,6 +105,10 @@ def list_tasks(
         allowed_project_ids=allowed_project_ids,
         sort_by=params.sort_by,
         sort_order=params.sort_order,
+        department=params.department,
+        assignee=params.assignee,
+        team=params.team,
+        sprint=params.sprint,
     )
 
     pages = math.ceil(total / params.size) if params.size else 0
