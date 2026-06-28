@@ -184,15 +184,81 @@ VALID_TASK_PAYLOAD = {
 
 
 @pytest.fixture
-def make_task(client):
+def make_task(client, db_session):
     """Factory fixture: create a task via POST /api/v1/tasks/."""
 
     def _make_task(**overrides):
+        db = db_session
+        project_id = overrides.get("project_id", client.seed["project_id"])
+
+        if "department" in overrides:
+            dept_name = overrides["department"]
+            from app.db.models.department import Department
+            from app.db.models.team import Team
+            from app.db.models.project import Project
+            from app.db.models.project_member import ProjectMember
+            
+            dept = db.query(Department).filter(Department.name == dept_name).first()
+            if not dept:
+                dept = Department(name=dept_name, description=f"{dept_name} Dept")
+                db.add(dept)
+                db.flush()
+                
+            team = db.query(Team).filter(Team.department_id == dept.id).first()
+            if not team:
+                team = Team(name=f"{dept_name} Team", department_id=dept.id, description=f"{dept_name} team")
+                db.add(team)
+                db.flush()
+                
+            project = db.query(Project).filter(Project.team_id == team.id).first()
+            if not project:
+                key = dept_name[:3].upper()
+                project = Project(
+                    name=f"{dept_name} Project",
+                    key=key,
+                    team_id=team.id,
+                    status="ACTIVE"
+                )
+                db.add(project)
+                db.flush()
+                
+                admin = client.seed["admin"]
+                pm = ProjectMember(project_id=project.id, user_id=admin.id, project_role="OWNER")
+                db.add(pm)
+                db.flush()
+                
+            project_id = project.id
+
+        assignee_id = None
+        if "assignee" in overrides:
+            assignee_name = overrides["assignee"]
+            from app.db.models.user import User
+            user = db.query(User).filter(
+                (User.full_name == assignee_name) | (User.username == assignee_name)
+            ).first()
+            if not user:
+                username = assignee_name.lower().replace(" ", "_")
+                email = f"{username}@tracker.com"
+                user = User(
+                    email=email,
+                    username=username,
+                    full_name=assignee_name,
+                    hashed_password="password123",
+                    role="worker",
+                    is_active=True
+                )
+                db.add(user)
+                db.flush()
+            assignee_id = user.id
+
         payload = {**VALID_TASK_PAYLOAD, **overrides}
+        if assignee_id is not None:
+            payload["assignee_id"] = assignee_id
+
         # Pop deprecated fields
         for f in ["department", "team", "assignee", "created_by", "sprint"]:
             payload.pop(f, None)
-        project_id = overrides.get("project_id", client.seed["project_id"])
+            
         resp = client.post(f"/api/v1/tasks/?project_id={project_id}", json=payload)
         assert resp.status_code == 201, resp.text
         return resp.json()
