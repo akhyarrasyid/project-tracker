@@ -1,8 +1,7 @@
 import datetime
-
+from typing import Optional, List
 from sqlalchemy import (
     CheckConstraint,
-    Column,
     Date,
     DateTime,
     Index,
@@ -10,78 +9,103 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    ForeignKey,
+    func
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from app.db.base import Base
 
-
-def _utcnow() -> datetime.datetime:
-    return datetime.datetime.now(datetime.timezone.utc)
-
-
 class Task(Base):
-    """Task aggregate root — mirrors all 26 fields from project_tracker_seed.json."""
+    """Task aggregate root — evolved with normalization and project association."""
 
     __tablename__ = "tasks"
 
-    # ── Primary key ──────────────────────────────────────────────────────
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("projects.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True
+    )
+    sprint_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("sprints.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    epic_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("epics.id", ondelete="SET NULL"),
+        nullable=True
+    )
 
-    # ── Core fields ──────────────────────────────────────────────────────
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False, server_default="")
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
-    # ── Enum-like string fields (validated at schema layer) ───────────────
-    status = Column(String(20), nullable=False, default="Todo")
-    priority = Column(String(20), nullable=False, default="Medium")
-    quarter = Column(String(5), nullable=False, default="Q1")
-    risk_level = Column(String(10), nullable=False, default="Low")
-    customer_impact = Column(String(20), nullable=False, default="None")
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="Todo")
+    priority: Mapped[str] = mapped_column(String(50), nullable=False, default="Medium")
+    quarter: Mapped[str] = mapped_column(String(5), nullable=False, default="Q1")
+    risk_level: Mapped[str] = mapped_column(String(10), nullable=False, default="Low")
+    customer_impact: Mapped[str] = mapped_column(String(20), nullable=False, default="None")
 
-    # ── Organisation fields ───────────────────────────────────────────────
-    department = Column(String(100), nullable=False, default="")
-    team = Column(String(100), nullable=False, default="")
-    assignee = Column(String(100), nullable=False, default="")
-    created_by = Column(String(50), nullable=False, default="")
+    assignee_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    created_by_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False
+    )
 
-    # ── Timestamps ───────────────────────────────────────────────────────
-    created_at = Column(
+    created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=_utcnow,
+        server_default=func.now()
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=_utcnow,
-        onupdate=_utcnow,
+        server_default=func.now(),
+        onupdate=func.now()
     )
-    due_date = Column(Date, nullable=False, default=datetime.date.today)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    due_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    completed_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
 
-    # ── Metrics ──────────────────────────────────────────────────────────
-    story_points = Column(SmallInteger, nullable=False, default=1)
-    estimated_hours = Column(Integer, nullable=False, default=8)
-    actual_hours = Column(Integer, nullable=False, default=0)
-    progress_percentage = Column(SmallInteger, nullable=False, default=0)
+    story_points: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    estimated_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=8)
+    actual_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    progress_percentage: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
 
-    # ── Counters ─────────────────────────────────────────────────────────
-    attachments_count = Column(SmallInteger, nullable=False, default=0)
-    comments_count = Column(SmallInteger, nullable=False, default=0)
-    watchers_count = Column(SmallInteger, nullable=False, default=0)
+    attachments_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    comments_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    watchers_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
 
-    # ── Sprint / planning ─────────────────────────────────────────────────
-    sprint = Column(String(20), nullable=False, default="")
+    sla_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=48)
 
-    # ── SLA ──────────────────────────────────────────────────────────────
-    sla_hours = Column(Integer, nullable=False, default=48)
+    dependencies: Mapped[List[int]] = mapped_column(JSON, nullable=False, default=list)
+    tags: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
 
-    # ── JSON arrays — use `JSON` so SQLite tests work, JSONB in production
-    dependencies = Column(JSON, nullable=False, default=list)
-    tags = Column(JSON, nullable=False, default=list)
+    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    deleted_by_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
 
-    # ── Table-level CHECK constraints ─────────────────────────────────────
     __table_args__ = (
         CheckConstraint(
             "status IN ('Todo', 'In Progress', 'Review', 'Blocked', 'Done')",
@@ -111,12 +135,8 @@ class Task(Base):
             "story_points IN (1, 2, 3, 5, 8, 13)",
             name="ck_tasks_story_points",
         ),
-        # ── Secondary indexes ────────────────────────────────────────────
         Index("ix_tasks_status", "status"),
         Index("ix_tasks_priority", "priority"),
-        Index("ix_tasks_department", "department"),
-        Index("ix_tasks_assignee", "assignee"),
         Index("ix_tasks_due_date", "due_date"),
-        Index("ix_tasks_sprint", "sprint"),
         Index("ix_tasks_created_at", "created_at"),
     )
