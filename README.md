@@ -16,7 +16,7 @@ project-tracker/
 │   │   │   ├── dependencies.py    # FastAPI dependencies (DB sessions, repository instances)
 │   │   │   ├── router.py          # Root APIRouter combining v1 sub-routers
 │   │   │   └── v1/
-│   │   │       └── task_routes.py # CRUD endpoint handlers with pagination & filters
+│   │   │       └── task_routes.py # CRUD and bulk CSV import/template endpoints
 │   │   ├── core/                  # Configuration & Global Utilities
 │   │   │   ├── config.py          # Environment settings (Pydantic Settings)
 │   │   │   └── exceptions.py      # Structured exception hierarchy
@@ -32,11 +32,16 @@ project-tracker/
 │   │   │   └── seed_service.py    # Idempotent database seeder script
 │   │   └── main.py                # FastAPI Application Factory
 │   └── tests/                     # Test Suites (Pytest)
+│       ├── e2e/                   # End-to-End API endpoint tests
+│       ├── integration/           # Repository and CSV task import integration tests
+│       └── unit/                  # Router and service unit tests
 │
 ├── frontend/                      # React Vite Frontend Application
 │   ├── src/
 │   │   ├── api/                   # Axios API service client
-│   │   ├── components/            # UI Components (Kanban board, forms)
+│   │   ├── components/            # UI Components (Kanban board, forms, CSV modal)
+│   │   │   ├── ImportCsvModal.tsx # Glassmorphism CSV dropzone and upload card component
+│   │   │   └── ImportCsvModal.test.tsx # CSV modal interactions and API mock tests
 │   │   ├── hooks/                 # Custom React Hooks (State orchestration & API interaction)
 │   │   ├── types/                 # TypeScript type interfaces matching backend schemas
 │   │   └── App.tsx                # Main Dashboard View
