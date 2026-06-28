@@ -111,3 +111,38 @@ class TaskRepository:
         items = q.offset(offset).limit(size).all()
 
         return items, total
+
+    # ── Write ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def create(db: Session, task_in: TaskCreate) -> Task:
+        data = task_in.model_dump()
+        task = Task(**data)
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        return task
+
+    @staticmethod
+    def update(db: Session, task: Task, task_in: TaskUpdate) -> Task:
+        updates = task_in.model_dump(exclude_unset=True)
+        for field, value in updates.items():
+            setattr(task, field, value)
+        db.commit()
+        db.refresh(task)
+        return task
+
+    @staticmethod
+    def delete(db: Session, task: Task) -> None:
+        db.delete(task)
+        db.commit()
+
+    # ── Bulk ──────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def bulk_create(db: Session, tasks_data: List[dict]) -> int:
+        """Insert many tasks in a single transaction. Returns count inserted."""
+        tasks = [Task(**data) for data in tasks_data]
+        db.bulk_save_objects(tasks)
+        db.commit()
+        return len(tasks)
