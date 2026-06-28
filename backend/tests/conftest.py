@@ -245,6 +245,7 @@ def make_task(client, db_session):
                     full_name=assignee_name,
                     hashed_password="password123",
                     role="worker",
+                    team_id=client.seed["team_id"],
                     is_active=True
                 )
                 db.add(user)
