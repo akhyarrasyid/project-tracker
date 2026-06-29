@@ -1,0 +1,74 @@
+name: Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      frontend_preview_target:
+        description: Frontend preview deployment URL or deployment ID to remove
+        required: false
+        type: string
+      backend_preview_target:
+        description: Backend preview deployment URL or deployment ID to remove
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-inputs:
+    name: Validate cleanup inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure at least one target is provided
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.frontend_preview_target }}" ] && [ -z "${{ inputs.backend_preview_target }}" ]; then
+            echo "Provide frontend_preview_target and/or backend_preview_target when triggering cleanup." >&2
+            exit 1
+          fi
+
+  cleanup-frontend:
+    name: Remove frontend preview deployment
+    needs: validate-inputs
+    if: ${{ inputs.frontend_preview_target != '' }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Remove frontend preview deployment
+        shell: bash
+        run: |
+          vercel remove "${{ inputs.frontend_preview_target }}" --safe --yes --token="$VERCEL_TOKEN"
+          echo "Frontend preview removed: ${{ inputs.frontend_preview_target }}" >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup-backend:
+    name: Remove backend preview deployment
+    needs: validate-inputs
+    if: ${{ inputs.backend_preview_target != '' }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Remove backend preview deployment
+        shell: bash
+        run: |
+          vercel remove "${{ inputs.backend_preview_target }}" --safe --yes --token="$VERCEL_TOKEN"
+          echo "Backend preview removed: ${{ inputs.backend_preview_target }}" >> "$GITHUB_STEP_SUMMARY"
+

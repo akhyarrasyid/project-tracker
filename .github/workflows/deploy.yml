@@ -1,0 +1,146 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: Vercel target environment
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+      git_ref:
+        description: Git ref to deploy when running manually
+        required: false
+        default: main
+        type: string
+
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-backend:
+    name: Deploy backend
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+      VERCEL_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'production' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull backend environment
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          else
+            vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          fi
+
+      - name: Build backend deployment
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            vercel build --prod --token="$VERCEL_TOKEN"
+          else
+            vercel build --token="$VERCEL_TOKEN"
+          fi
+
+      - name: Deploy backend
+        id: backend_deploy
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            deployment_url="$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN")"
+          else
+            deployment_url="$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN" \
+              --meta githubCommitSha="$GITHUB_SHA" \
+              --meta githubRunId="$GITHUB_RUN_ID" \
+              --meta githubWorkflow="deploy")"
+          fi
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Backend deployment: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-frontend:
+    name: Deploy frontend
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+      VERCEL_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'production' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull frontend environment
+        working-directory: frontend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          else
+            vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          fi
+
+      - name: Build frontend deployment
+        working-directory: frontend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            vercel build --prod --token="$VERCEL_TOKEN"
+          else
+            vercel build --token="$VERCEL_TOKEN"
+          fi
+
+      - name: Deploy frontend
+        id: frontend_deploy
+        working-directory: frontend
+        shell: bash
+        run: |
+          if [ "$VERCEL_TARGET" = "production" ]; then
+            deployment_url="$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN")"
+          else
+            deployment_url="$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN" \
+              --meta githubCommitSha="$GITHUB_SHA" \
+              --meta githubRunId="$GITHUB_RUN_ID" \
+              --meta githubWorkflow="deploy")"
+          fi
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Frontend deployment: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
+

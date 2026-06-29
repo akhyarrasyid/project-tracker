@@ -1,0 +1,74 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      frontend_target:
+        description: Frontend deployment URL or deployment ID to roll back
+        required: false
+        type: string
+      backend_target:
+        description: Backend deployment URL or deployment ID to roll back
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-inputs:
+    name: Validate rollback inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure at least one target is provided
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.frontend_target }}" ] && [ -z "${{ inputs.backend_target }}" ]; then
+            echo "Provide frontend_target and/or backend_target when triggering rollback." >&2
+            exit 1
+          fi
+
+  rollback-frontend:
+    name: Roll back frontend
+    needs: validate-inputs
+    if: ${{ inputs.frontend_target != '' }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Roll back frontend deployment
+        shell: bash
+        run: |
+          vercel rollback "${{ inputs.frontend_target }}" --token="$VERCEL_TOKEN"
+          echo "Frontend rollback triggered for ${{ inputs.frontend_target }}" >> "$GITHUB_STEP_SUMMARY"
+
+  rollback-backend:
+    name: Roll back backend
+    needs: validate-inputs
+    if: ${{ inputs.backend_target != '' }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Roll back backend deployment
+        shell: bash
+        run: |
+          vercel rollback "${{ inputs.backend_target }}" --token="$VERCEL_TOKEN"
+          echo "Backend rollback triggered for ${{ inputs.backend_target }}" >> "$GITHUB_STEP_SUMMARY"
+
