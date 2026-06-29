@@ -37,7 +37,10 @@ def test_load_test_database_url_does_not_fall_back_to_general_database_url(tmp_p
 
     database_url = load_test_database_url({}, (env_file,))
 
-    assert database_url == "postgresql://postgres:postgres@127.0.0.1:5432/project_tracker_test"
+    assert (
+        database_url
+        == "postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test"
+    )
 
 
 def test_assert_safe_test_database_url_rejects_remote_without_opt_in():

@@ -8,7 +8,7 @@ Backend tests default to an isolated local PostgreSQL database. They do not use 
   - Main backend application database for local development.
 - `TEST_DATABASE_URL`
   - Local PostgreSQL database used by `pytest`.
-  - Default if unset: `postgresql://postgres:postgres@127.0.0.1:5432/project_tracker_test`
+  - Default if unset: `postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test`
 - `TEST_DATABASE_ADMIN_URL`
   - Admin connection used to create `TEST_DATABASE_URL` if it does not exist.
   - Default if unset: same host/credentials as `TEST_DATABASE_URL`, database `postgres`.
@@ -19,19 +19,25 @@ Backend tests default to an isolated local PostgreSQL database. They do not use 
 
 ## Local PostgreSQL Test Flow
 
-1. Start the local database:
+1. Start the isolated local test database:
 
 ```powershell
-docker compose up -d db
+.\backend\scripts\start_test_postgres.ps1
 ```
 
-2. Run backend tests locally:
+2. Apply the emitted test environment variables in the same shell:
+
+```powershell
+. .\backend\.runtime\postgres-test\test-env.ps1
+```
+
+3. Run backend tests locally:
 
 ```powershell
 backend\.venv\Scripts\python.exe -m pytest backend\tests -q
 ```
 
-3. Run backend lint locally:
+4. Run backend lint locally:
 
 ```powershell
 backend\.venv\Scripts\ruff.exe check backend
@@ -46,6 +52,12 @@ The harness automatically:
 - drops the temporary schema after the run.
 
 This keeps test data isolated from `project_tracker`, development data, and any remote database.
+
+Stop the isolated test instance when finished:
+
+```powershell
+.\backend\scripts\stop_test_postgres.ps1
+```
 
 ## Explicit Supabase Verification
 

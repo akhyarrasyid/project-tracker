@@ -7,7 +7,9 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 
-DEFAULT_TEST_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/project_tracker_test"
+DEFAULT_TEST_DATABASE_URL = (
+    "postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test"
+)
 DEFAULT_ALLOWED_LOCAL_HOSTS = {"localhost", "127.0.0.1", "db", "postgres"}
 DATABASE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 

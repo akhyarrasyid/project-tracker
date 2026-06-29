@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.db.models.sprint import Sprint
 from app.db.models.task import Task
 from app.services import seed_service
 from tests.conftest import VALID_TASK_PAYLOAD
@@ -110,6 +111,34 @@ def test_cmd_seed_idempotency(mock_records, db_session):
     assert db_session.query(Task).count() == 2
 
 
+def test_cmd_seed_creates_project_scoped_sprint(db_session):
+    records = [
+        {
+            **VALID_TASK_PAYLOAD,
+            "id": 91,
+            "number": 91,
+            "project": "Payment Platform",
+            "project_key": "PAY",
+            "department": "Engineering",
+            "team": "Platform Payments",
+            "title": "Handle duplicate payment callback",
+            "assignee": "Fajar Nugroho",
+            "created_by": "Amanda Putri",
+            "sprint": "Sprint 4",
+        }
+    ]
+
+    seed_service.cmd_seed(records)
+
+    task = db_session.query(Task).filter(Task.id == 91).first()
+    assert task is not None
+    assert task.sprint_id is not None
+    assert task.project_id is not None
+    sprint = db_session.query(Sprint).filter(Sprint.id == task.sprint_id).first()
+    assert sprint is not None
+    assert sprint.project_id == task.project_id
+
+
 def test_cmd_seed_db_error(mock_records, monkeypatch):
     def mock_commit(*args, **kwargs):
         raise Exception("DB Error")
@@ -192,7 +221,11 @@ def test_main_seed(mock_cmd_seed, mock_load, mock_parse, mock_records):
     mock_parse.return_value = argparse.Namespace(
         validate=False, dry_run=False, seed=True, reset=False
     )
-    seed_service.main()
+    with patch("app.services.seed_service.inspect") as mock_inspect:
+        mock_inspect.return_value.has_table.return_value = False
+        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
+            seed_service.main()
+    mock_create_all.assert_called_once_with(bind=seed_service.engine)
     mock_cmd_seed.assert_called_once_with(mock_records)
 
 
@@ -204,5 +237,29 @@ def test_main_reset(mock_cmd_reset, mock_load, mock_parse, mock_records):
     mock_parse.return_value = argparse.Namespace(
         validate=False, dry_run=False, seed=False, reset=True
     )
-    seed_service.main()
+    with patch("app.services.seed_service.inspect") as mock_inspect:
+        mock_inspect.return_value.has_table.return_value = False
+        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
+            seed_service.main()
+    mock_create_all.assert_called_once_with(bind=seed_service.engine)
     mock_cmd_reset.assert_called_once_with(mock_records)
+
+
+@patch("argparse.ArgumentParser.parse_args")
+@patch("app.services.seed_service._load_seed_data")
+@patch("app.services.seed_service.cmd_seed")
+def test_main_skips_create_all_when_alembic_version_exists(
+    mock_cmd_seed, mock_load, mock_parse, mock_records
+):
+    mock_load.return_value = mock_records
+    mock_parse.return_value = argparse.Namespace(
+        validate=False, dry_run=False, seed=True, reset=False
+    )
+
+    with patch("app.services.seed_service.inspect") as mock_inspect:
+        mock_inspect.return_value.has_table.return_value = True
+        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
+            seed_service.main()
+
+    mock_create_all.assert_not_called()
+    mock_cmd_seed.assert_called_once_with(mock_records)

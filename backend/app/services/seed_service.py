@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from pydantic import ValidationError
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 # Import models so metadata is populated
@@ -120,10 +121,11 @@ class SeederContext:
         self.users_by_username[username] = u.id
         return u.id
 
-    def get_or_create_sprint(self, name: str) -> int:
+    def get_or_create_sprint(self, project_id: int, name: str) -> int:
         if name in self.sprints_cache:
             return self.sprints_cache[name]
         s = Sprint(
+            project_id=project_id,
             name=name,
             start_date=datetime.date.today(),
             end_date=datetime.date.today() + datetime.timedelta(days=14),
@@ -308,7 +310,9 @@ def _prepare_task_record(
 
     # Resolve sprint
     sprint_str = d.get("sprint")
-    sprint_id = ctx.get_or_create_sprint(sprint_str) if sprint_str else None
+    sprint_id = (
+        ctx.get_or_create_sprint(project_id, sprint_str) if sprint_str else None
+    )
 
     # Build Task DB attributes
     task_kwargs = {
@@ -441,7 +445,8 @@ def cmd_reset(records: List[Dict[str, Any]]) -> None:
 
 
 def main() -> None:
-    Base.metadata.create_all(bind=engine)
+    if not inspect(engine).has_table("alembic_version"):
+        Base.metadata.create_all(bind=engine)
 
     parser = argparse.ArgumentParser(description="Project Tracker seed service")
     group = parser.add_mutually_exclusive_group(required=True)
