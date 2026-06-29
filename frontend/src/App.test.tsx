@@ -59,6 +59,9 @@ vi.mock("./api/tasks", () => ({
 
 vi.mock("./contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock("./contexts/useAuth", () => ({
   useAuth: () => ({
     user: {
       id: 7,

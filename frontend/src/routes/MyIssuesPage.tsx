@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { useMyIssuesQuery } from "../features/issues/hooks/useMyIssuesQuery";
 
 export function MyIssuesPage() {

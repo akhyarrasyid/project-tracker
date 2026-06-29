@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { metaApi } from "../api/meta";
 import type { ProjectMeta } from "../types/meta";
 

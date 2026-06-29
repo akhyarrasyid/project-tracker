@@ -2,7 +2,7 @@ import { Home, LogOut, Search, UserCircle2 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { LoginPage } from "../components/LoginPage";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import { useProjectsQuery } from "../features/projects/hooks/useProjectsQuery";
 
 function cn(...values: Array<string | false | null | undefined>) {

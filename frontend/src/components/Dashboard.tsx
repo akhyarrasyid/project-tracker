@@ -1,5 +1,5 @@
 import React from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuth";
 import type { Task } from "../types/task";
 import { useMyIssuesQuery } from "../features/issues/hooks/useMyIssuesQuery";
 import { useProjectsQuery } from "../features/projects/hooks/useProjectsQuery";
