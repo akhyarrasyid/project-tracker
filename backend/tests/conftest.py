@@ -5,37 +5,43 @@ import sys
 import uuid
 from pathlib import Path
 
+# Ensure backend root is on sys.path before importing test support modules.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-
-# Ensure backend root is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from tests.support.db_env import (
+    assert_safe_test_database_url,
+    derive_admin_database_url,
+    ensure_database_exists,
+    load_supabase_database_url,
+    load_test_database_url,
+    test_mode_allows_remote_database,
+)
 
 TEST_SCHEMA = f"test_{uuid.uuid4().hex}"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+ENV_FILES = (BACKEND_ROOT / ".env", PROJECT_ROOT / ".env")
 
 
-def _load_database_url() -> str:
-    env_database_url = os.environ.get("DATABASE_URL")
-    if env_database_url:
-        return env_database_url
+DATABASE_URL = load_test_database_url(os.environ, ENV_FILES)
+ALLOW_REMOTE_TEST_DATABASE = test_mode_allows_remote_database()
+PARSED_TEST_DATABASE_URL = assert_safe_test_database_url(
+    DATABASE_URL,
+    allow_remote=ALLOW_REMOTE_TEST_DATABASE,
+)
+SUPABASE_DATABASE_URL = load_supabase_database_url(os.environ, ENV_FILES)
+TEST_DATABASE_ADMIN_URL = derive_admin_database_url(
+    DATABASE_URL,
+    os.environ.get("TEST_DATABASE_ADMIN_URL"),
+)
 
-    project_root = Path(__file__).resolve().parents[2]
-    env_path = project_root / ".env"
-    if env_path.exists():
-        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            if key.strip() == "DATABASE_URL":
-                return value.strip()
+if not ALLOW_REMOTE_TEST_DATABASE:
+    ensure_database_exists(DATABASE_URL, TEST_DATABASE_ADMIN_URL)
 
-    raise RuntimeError("DATABASE_URL is required to run backend tests")
-
-
-DATABASE_URL = _load_database_url()
 os.environ["DATABASE_URL"] = DATABASE_URL
 os.environ["DATABASE_SCHEMA"] = TEST_SCHEMA
 
