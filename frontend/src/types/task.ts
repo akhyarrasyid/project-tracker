@@ -17,6 +17,7 @@ export type CustomerImpact = "None" | "Low" | "Medium" | "High" | "Internal";
 export interface Task {
   id: number;
   number: number;
+  rank: number;
   key: string;
   project_key?: string | null;
   project_id?: number;
@@ -97,6 +98,24 @@ export interface TaskUpdate {
   customer_impact?: CustomerImpact;
   sla_hours?: number;
   tags?: string[];
+}
+
+export interface BoardColumn {
+  status: TaskStatus;
+  items: Task[];
+  total_count: number;
+  next_after?: number | null;
+  next_before?: number | null;
+}
+
+export interface BoardResponse {
+  columns: Record<TaskStatus, BoardColumn>;
+}
+
+export interface IssueMoveInput {
+  status: TaskStatus;
+  before_issue_id?: number | null;
+  after_issue_id?: number | null;
 }
 
 // ── Paginated API response envelope ─────────────────────────────────────────

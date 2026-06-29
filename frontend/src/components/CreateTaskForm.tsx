@@ -15,6 +15,7 @@ const TODAY = new Date().toISOString().split("T")[0];
 interface Props {
   readonly onCreate: (data: TaskCreate, projectId: number) => Promise<unknown>;
   readonly currentProjectId?: number | null;
+  readonly initialStatus?: TaskStatus;
 }
 
 interface FormState {
@@ -47,9 +48,20 @@ const INITIAL: FormState = {
   tagsInput: "",
 };
 
-export function CreateTaskForm({ onCreate, currentProjectId }: Props) {
+function createInitialState(initialStatus: TaskStatus): FormState {
+  return {
+    ...INITIAL,
+    status: initialStatus,
+  };
+}
+
+export function CreateTaskForm({
+  onCreate,
+  currentProjectId,
+  initialStatus = "Todo",
+}: Props) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(INITIAL);
+  const [form, setForm] = useState<FormState>(() => createInitialState(initialStatus));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -173,7 +185,7 @@ export function CreateTaskForm({ onCreate, currentProjectId }: Props) {
     setError("");
     try {
       await onCreate(payload, Number(projId));
-      setForm(INITIAL);
+      setForm(createInitialState(initialStatus));
       setDepId("");
       setTeamId("");
       setProjId("");
@@ -207,7 +219,7 @@ export function CreateTaskForm({ onCreate, currentProjectId }: Props) {
             onClick={() => {
               setOpen(false);
               setError("");
-              setForm(INITIAL);
+              setForm(createInitialState(initialStatus));
               setDepId("");
               setTeamId("");
               setProjId("");
@@ -533,7 +545,7 @@ export function CreateTaskForm({ onCreate, currentProjectId }: Props) {
               onClick={() => {
                 setOpen(false);
                 setError("");
-                setForm(INITIAL);
+                setForm(createInitialState(initialStatus));
                 setDepId("");
                 setTeamId("");
                 setProjId("");

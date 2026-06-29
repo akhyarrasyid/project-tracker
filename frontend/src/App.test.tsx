@@ -7,7 +7,6 @@ import App from "./App";
 import { issueApi } from "./api/issues";
 import { metaApi } from "./api/meta";
 import { projectApi } from "./api/projects";
-import { taskApi } from "./api/tasks";
 import { queryClient } from "./app/query-client";
 
 vi.mock("./api/meta", () => ({
@@ -19,19 +18,10 @@ vi.mock("./api/meta", () => ({
   },
 }));
 
-vi.mock("./api/tasks", () => ({
-  taskApi: {
-    getAll: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
 vi.mock("./api/projects", () => ({
   projectApi: {
     getSummary: vi.fn(),
+    getBoard: vi.fn(),
   },
 }));
 
@@ -81,6 +71,7 @@ const boardResponse = {
     {
       id: 12,
       number: 12,
+      rank: 1024,
       key: "PAY-12",
       project_key: "PAY",
       project_id: 1,
@@ -138,8 +129,31 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/");
 
   vi.mocked(metaApi.getProjects).mockResolvedValue(projects);
-  vi.mocked(taskApi.getAll).mockResolvedValue(boardResponse);
   vi.mocked(projectApi.getSummary).mockResolvedValue(projectSummary);
+  vi.mocked(projectApi.getBoard).mockResolvedValue({
+    columns: {
+      Todo: {
+        status: "Todo",
+        items: boardResponse.items,
+        total_count: 1,
+      },
+      "In Progress": {
+        status: "In Progress",
+        items: [],
+        total_count: 0,
+      },
+      Review: {
+        status: "Review",
+        items: [],
+        total_count: 0,
+      },
+      Done: {
+        status: "Done",
+        items: [],
+        total_count: 0,
+      },
+    },
+  });
   vi.mocked(issueApi.getByKey).mockResolvedValue(boardResponse.items[0]);
 });
 
@@ -154,11 +168,7 @@ describe("Milestone 2 frontend foundation", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Board view")).toBeInTheDocument();
     await waitFor(() => {
-      expect(vi.mocked(taskApi.getAll)).toHaveBeenCalledWith({
-        project_id: 1,
-        page: 1,
-        size: 20,
-      });
+      expect(vi.mocked(projectApi.getBoard)).toHaveBeenCalledWith(1, { limit: 50, start: true });
     });
   });
 

@@ -1,4 +1,5 @@
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { TaskCalendar } from "../components/TaskCalendar";
 import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
@@ -6,9 +7,12 @@ import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
 export function CalendarPage() {
   const { projectKey } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const page = Number(searchParams.get("page") ?? "1");
-  const calendarQuery = useBoardQuery(projectKey, page);
+  const calendarQuery = useBoardQuery(projectKey);
+  const tasks = useMemo(
+    () =>
+      Object.values(calendarQuery.data?.columns ?? {}).flatMap((column) => column.items),
+    [calendarQuery.data],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -17,7 +21,7 @@ export function CalendarPage() {
         <h2 className="mt-1 text-xl font-semibold text-neutral-900">Due dates</h2>
       </div>
       <TaskCalendar
-        tasks={calendarQuery.data?.items ?? []}
+        tasks={tasks}
         onTaskClick={(task) => navigate(`/issues/${task.key}`)}
       />
     </div>

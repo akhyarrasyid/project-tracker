@@ -1,4 +1,5 @@
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { TaskTaskList } from "../components/TaskTaskList";
 import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
@@ -6,9 +7,12 @@ import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
 export function IssuesPage() {
   const { projectKey } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const page = Number(searchParams.get("page") ?? "1");
-  const issuesQuery = useBoardQuery(projectKey, page);
+  const issuesQuery = useBoardQuery(projectKey);
+  const tasks = useMemo(
+    () =>
+      Object.values(issuesQuery.data?.columns ?? {}).flatMap((column) => column.items),
+    [issuesQuery.data],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -17,7 +21,7 @@ export function IssuesPage() {
         <h2 className="mt-1 text-xl font-semibold text-neutral-900">Project issues</h2>
       </div>
       <TaskTaskList
-        tasks={issuesQuery.data?.items ?? []}
+        tasks={tasks}
         onTaskClick={(task) => navigate(`/issues/${task.key}`)}
       />
     </div>
