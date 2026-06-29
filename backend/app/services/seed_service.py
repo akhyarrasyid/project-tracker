@@ -69,10 +69,12 @@ class SeederContext:
         self.teams_cache[name] = t.id
         return t.id
 
-    def get_or_create_project(self, name: str, team_id: int) -> int:
+    def get_or_create_project(
+        self, name: str, team_id: int, key_override: str | None = None
+    ) -> int:
         if name in self.projects_cache:
             return self.projects_cache[name]
-        key = "".join([c for c in name if c.isupper()])[:5]
+        key = key_override or "".join([c for c in name if c.isupper()])[:5]
         if not key:
             key = name[:3].upper()
         project = Project(name=name, key=key, team_id=team_id, status="ACTIVE")
@@ -154,14 +156,31 @@ def _validate_records(
             record_clean = {
                 k: v
                 for k, v in record.items()
-                if k not in ["department", "team", "assignee", "created_by", "sprint"]
+                if k
+                not in [
+                    "department",
+                    "team",
+                    "assignee",
+                    "created_by",
+                    "sprint",
+                    "project",
+                    "project_key",
+                ]
             }
             validated = TaskCreate(**record_clean)
             dump = validated.model_dump()
             if "id" in record:
                 dump["id"] = record["id"]
             # Keep the legacy string fields on the output dump so that they can be used for mapping in cmd_seed!
-            for f in ["department", "team", "assignee", "created_by", "sprint"]:
+            for f in [
+                "department",
+                "team",
+                "assignee",
+                "created_by",
+                "sprint",
+                "project",
+                "project_key",
+            ]:
                 if f in record:
                     dump[f] = record[f]
             valid.append(dump)
@@ -262,10 +281,18 @@ def _prepare_task_record(
     dept_str = d.get("department")
     team_str = d.get("team")
 
+    project_name = d.get("project")
+    project_key = d.get("project_key")
+
     if dept_str and team_str:
         dept_id = ctx.get_or_create_dept(dept_str)
         team_id = ctx.get_or_create_team(team_str, dept_id)
-        project_id = ctx.get_or_create_project(f"{team_str} Project", team_id)
+        resolved_project_name = project_name or f"{team_str} Project"
+        project_id = ctx.get_or_create_project(
+            resolved_project_name,
+            team_id,
+            key_override=project_key,
+        )
     else:
         project_id = default_project.id
         team_id = default_team.id
@@ -287,7 +314,16 @@ def _prepare_task_record(
     task_kwargs = {
         k: v
         for k, v in d.items()
-        if k not in ["department", "team", "assignee", "created_by", "sprint"]
+        if k
+        not in [
+            "department",
+            "team",
+            "assignee",
+            "created_by",
+            "sprint",
+            "project",
+            "project_key",
+        ]
     }
 
     task_kwargs["project_id"] = project_id

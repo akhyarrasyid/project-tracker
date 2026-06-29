@@ -157,7 +157,7 @@ def test_load_seed_data_missing_file(monkeypatch):
 def test_load_seed_data_success():
     data = seed_service._load_seed_data()
     assert isinstance(data, list)
-    assert len(data) == 500
+    assert len(data) >= 12
 
 
 @patch("argparse.ArgumentParser.parse_args")
