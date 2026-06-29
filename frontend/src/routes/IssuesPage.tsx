@@ -1,12 +1,13 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { TaskTaskList } from "../components/TaskTaskList";
+import { IssueDetailPanel } from "../features/issues/components/IssueDetailPanel";
 import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
 
 export function IssuesPage() {
   const { projectKey } = useParams();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const issuesQuery = useBoardQuery(projectKey);
   const tasks = useMemo(
     () =>
@@ -22,7 +23,20 @@ export function IssuesPage() {
       </div>
       <TaskTaskList
         tasks={tasks}
-        onTaskClick={(task) => navigate(`/issues/${task.key}`)}
+        onTaskClick={(task) => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set("issue", task.key);
+          setSearchParams(nextParams);
+        }}
+      />
+      <IssueDetailPanel
+        issueKey={searchParams.get("issue") ?? undefined}
+        mode="sheet"
+        onClose={() => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete("issue");
+          setSearchParams(nextParams);
+        }}
       />
     </div>
   );

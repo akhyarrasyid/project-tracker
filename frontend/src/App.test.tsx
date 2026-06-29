@@ -28,6 +28,30 @@ vi.mock("./api/projects", () => ({
 vi.mock("./api/issues", () => ({
   issueApi: {
     getByKey: vi.fn(),
+    patch: vi.fn(),
+    update: vi.fn(),
+    move: vi.fn(),
+    getComments: vi.fn(() => Promise.resolve([])),
+    createComment: vi.fn(),
+    getActivities: vi.fn(() => Promise.resolve([])),
+    deleteById: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
+vi.mock("./api/tasks", () => ({
+  taskApi: {
+    getAll: vi.fn(() =>
+      Promise.resolve({
+        items: [],
+        total: 0,
+        page: 1,
+        size: 100,
+        pages: 0,
+      }),
+    ),
+    getById: vi.fn(),
+    create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   },
@@ -72,10 +96,13 @@ const boardResponse = {
       id: 12,
       number: 12,
       rank: 1024,
+      version: 1,
       key: "PAY-12",
       project_key: "PAY",
       project_id: 1,
       assignee_id: 7,
+      parent_id: null,
+      created_by_id: 7,
       title: "Handle duplicate callback",
       description: "Investigate duplicate payment callback",
       status: "Todo" as const,
@@ -90,6 +117,7 @@ const boardResponse = {
       updated_at: "2026-06-29T00:00:00Z",
       due_date: "2026-07-05",
       completed_at: null,
+      completed_by_id: null,
       story_points: 3,
       estimated_hours: 8,
       actual_hours: 0,
@@ -129,6 +157,9 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/");
 
   vi.mocked(metaApi.getProjects).mockResolvedValue(projects);
+  vi.mocked(metaApi.getUsers).mockResolvedValue([
+    { id: 7, full_name: "Administrator", email: "admin@tracker.com" },
+  ]);
   vi.mocked(projectApi.getSummary).mockResolvedValue(projectSummary);
   vi.mocked(projectApi.getBoard).mockResolvedValue({
     columns: {
@@ -155,6 +186,8 @@ beforeEach(() => {
     },
   });
   vi.mocked(issueApi.getByKey).mockResolvedValue(boardResponse.items[0]);
+  vi.mocked(issueApi.patch).mockResolvedValue(boardResponse.items[0]);
+  vi.mocked(issueApi.deleteById).mockResolvedValue({ data: undefined } as never);
 });
 
 describe("Milestone 2 frontend foundation", () => {
@@ -177,8 +210,8 @@ describe("Milestone 2 frontend foundation", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("PAY-12")).toBeInTheDocument();
-    expect(screen.getByText("Handle duplicate callback")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Handle duplicate callback")).toBeInTheDocument();
+    expect(screen.getByText("PAY-12")).toBeInTheDocument();
     expect(vi.mocked(issueApi.getByKey)).toHaveBeenCalledWith("PAY-12");
   });
 
@@ -201,5 +234,22 @@ describe("Milestone 2 frontend foundation", () => {
 
     expect(await screen.findByText("Calendar view")).toBeInTheDocument();
     expect(screen.getByText("Senin")).toBeInTheDocument();
+  });
+
+  it("opens and closes the issue sheet from board route context", async () => {
+    window.history.replaceState({}, "", "/projects/PAY/board?issue=PAY-12");
+
+    render(<App />);
+
+    expect(await screen.findByDisplayValue("Handle duplicate callback")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/projects/PAY/board");
+    expect(window.location.search).toBe("?issue=PAY-12");
+
+    screen.getByLabelText("Close issue").click();
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/projects/PAY/board");
+      expect(window.location.search).toBe("");
+    });
   });
 });

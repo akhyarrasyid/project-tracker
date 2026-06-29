@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { queryClient } from "../app/query-client";
 import { issueApi } from "../api/issues";
@@ -26,6 +26,7 @@ import { KanbanColumn } from "../components/KanbanColumn";
 import { CreateTaskForm } from "../components/CreateTaskForm";
 import { TaskCard } from "../components/TaskCard";
 import { applyOptimisticMove } from "../features/issues/board-cache";
+import { IssueDetailPanel } from "../features/issues/components/IssueDetailPanel";
 import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
 import type { BoardResponse, IssueMoveInput, Task, TaskCreate, TaskStatus } from "../types/task";
 
@@ -76,11 +77,9 @@ function buildMoveInput(board: BoardResponse, activeTaskId: number, overId: stri
 
 function SortableTaskCard({
   task,
-  onDelete,
   onTaskClick,
 }: {
   task: Task;
-  onDelete: (id: number) => Promise<void>;
   onTaskClick: (task: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -100,14 +99,14 @@ function SortableTaskCard({
       {...attributes}
       {...listeners}
     >
-      <TaskCard task={task} onDelete={onDelete} onTaskClick={onTaskClick} />
+      <TaskCard task={task} onTaskClick={onTaskClick} />
     </div>
   );
 }
 
 export function ProjectBoardPage() {
   const { projectKey } = useParams();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const boardQuery = useBoardQuery(projectKey);
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const sensors = useSensors(
@@ -129,12 +128,6 @@ export function ProjectBoardPage() {
     await queryClient.invalidateQueries({ queryKey: ["board", projectKey] });
     await queryClient.invalidateQueries({ queryKey: ["my-issues"] });
     return created;
-  }
-
-  async function handleDeleteTask(id: number) {
-    await taskApi.delete(id);
-    await queryClient.invalidateQueries({ queryKey: ["board", projectKey] });
-    await queryClient.invalidateQueries({ queryKey: ["my-issues"] });
   }
 
   const moveMutation = useMutation({
@@ -178,8 +171,18 @@ export function ProjectBoardPage() {
     if (!moveInput) {
       return;
     }
+    const movingTask = findTask(boardQuery.data, issueId);
+    if (!movingTask) {
+      return;
+    }
 
-    moveMutation.mutate({ issueId, input: moveInput });
+    moveMutation.mutate({
+      issueId,
+      input: {
+        ...moveInput,
+        expected_version: movingTask.version,
+      },
+    });
   }
 
   const activeTask =
@@ -221,8 +224,11 @@ export function ProjectBoardPage() {
                       <SortableTaskCard
                         key={task.id}
                         task={task}
-                        onDelete={handleDeleteTask}
-                        onTaskClick={(item) => navigate(`/issues/${item.key}`)}
+                        onTaskClick={(item) => {
+                          const nextParams = new URLSearchParams(searchParams);
+                          nextParams.set("issue", item.key);
+                          setSearchParams(nextParams);
+                        }}
                       />
                     )}
                     extra={
@@ -242,11 +248,21 @@ export function ProjectBoardPage() {
         <DragOverlay>
           {activeTask ? (
             <div className="w-[300px]">
-              <TaskCard task={activeTask} onDelete={handleDeleteTask} onTaskClick={() => {}} />
+              <TaskCard task={activeTask} onTaskClick={() => {}} />
             </div>
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <IssueDetailPanel
+        issueKey={searchParams.get("issue") ?? undefined}
+        mode="sheet"
+        onClose={() => {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete("issue");
+          setSearchParams(nextParams);
+        }}
+      />
     </div>
   );
 }
