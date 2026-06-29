@@ -44,6 +44,9 @@ class SeederContext:
         self.depts_cache = {d.name: d.id for d in db.query(Department).all()}
         self.teams_cache = {t.name: t.id for t in db.query(Team).all()}
         self.projects_cache = {p.name: p.id for p in db.query(Project).all()}
+        self.project_issue_sequences = {
+            p.id: p.issue_sequence for p in db.query(Project).all()
+        }
         self.users_cache = {u.full_name: u.id for u in db.query(User).all()}
         self.users_by_username = {u.username: u.id for u in db.query(User).all()}
         self.sprints_cache = {s.name: s.id for s in db.query(Sprint).all()}
@@ -76,7 +79,21 @@ class SeederContext:
         self.db.add(project)
         self.db.flush()
         self.projects_cache[name] = project.id
+        self.project_issue_sequences[project.id] = project.issue_sequence
         return project.id
+
+    def allocate_issue_number(self, project_id: int) -> int:
+        current = self.project_issue_sequences.get(project_id)
+        if current is None:
+            current = (
+                self.db.query(Project.issue_sequence)
+                .filter(Project.id == project_id)
+                .scalar()
+                or 0
+            )
+        next_number = current + 1
+        self.project_issue_sequences[project_id] = next_number
+        return next_number
 
     def get_or_create_user(self, full_name: str, team_id: int) -> int:
         from app.core.security import get_password_hash
@@ -284,6 +301,22 @@ def _prepare_task_record(
     if "tags" not in task_kwargs:
         task_kwargs["tags"] = []
 
+    if task_kwargs.get("status") == "Blocked":
+        task_kwargs["status"] = "In Progress"
+        task_kwargs["is_blocked"] = True
+        task_kwargs.setdefault(
+            "blocked_reason", "Migrated from legacy blocked status"
+        )
+
+    task_number = task_kwargs.get("number")
+    if not isinstance(task_number, int) or task_number < 1:
+        task_kwargs["number"] = ctx.allocate_issue_number(project_id)
+    else:
+        ctx.project_issue_sequences[project_id] = max(
+            ctx.project_issue_sequences.get(project_id, 0),
+            task_number,
+        )
+
     return Task(**task_kwargs)
 
 
@@ -314,6 +347,10 @@ def cmd_seed(records: List[Dict[str, Any]]) -> None:
 
         log.info(f"Inserting {len(to_insert)} records ...")
         db.add_all(to_insert)
+        for project_id, issue_sequence in ctx.project_issue_sequences.items():
+            db.query(Project).filter(Project.id == project_id).update(
+                {"issue_sequence": issue_sequence}
+            )
         db.commit()
 
         # Reset ID sequences to max ID + 1 to prevent sequence out-of-sync insertion conflicts

@@ -12,6 +12,7 @@ backend/__pycache__/
 # ======================
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 
 # ======================
 # Environment Variables
@@ -35,4 +36,4 @@ Thumbs.db
 # ======================
 *.db
 *.sqlite
-*.sqlite3
+*.sqlite3

@@ -136,7 +136,7 @@ def seed_test_hierarchy(db):
     }
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setup_db():
     """Create all tables before each test, drop them after."""
     import app.db.models  # noqa: F401

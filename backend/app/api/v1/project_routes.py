@@ -112,7 +112,7 @@ def get_project_summary(
         Task.risk_level == "High",
         and_(Task.due_date <= today + datetime.timedelta(days=3), Task.status != "Done"),
         and_(
-            Task.status == "Blocked",
+            Task.is_blocked.is_(True),
             Task.due_date <= today + datetime.timedelta(days=7),
         ),
     )
@@ -121,7 +121,7 @@ def get_project_summary(
     total_issues = base_query.count()
     done_issues = base_query.filter(Task.status == "Done").count()
     active_issues = base_query.filter(Task.status != "Done").count()
-    blocked_count = base_query.filter(Task.status == "Blocked").count()
+    blocked_count = base_query.filter(Task.is_blocked.is_(True)).count()
     overdue_count = base_query.filter(
         Task.due_date < today,
         Task.status != "Done",

@@ -91,6 +91,10 @@ class Task(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="Todo")
+    is_blocked: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
+    blocked_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     priority: Mapped[str] = mapped_column(String(50), nullable=False, default="Medium")
     quarter: Mapped[str] = mapped_column(String(5), nullable=False, default="Q1")
     risk_level: Mapped[str] = mapped_column(String(10), nullable=False, default="Low")
@@ -153,7 +157,7 @@ class Task(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('Todo', 'In Progress', 'Review', 'Blocked', 'Done')",
+            "status IN ('Todo', 'In Progress', 'Review', 'Done')",
             name="ck_tasks_status",
         ),
         CheckConstraint(
@@ -182,6 +186,7 @@ class Task(Base):
         ),
         Index("ix_tasks_status", "status"),
         Index("ix_tasks_priority", "priority"),
+        Index("ix_tasks_is_blocked", "is_blocked"),
         Index("ix_tasks_due_date", "due_date"),
         Index("ix_tasks_created_at", "created_at"),
     )

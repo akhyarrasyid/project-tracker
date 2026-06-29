@@ -3,7 +3,6 @@ import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, lazyload
 
-from app.db.models.activity_log import ActivityLog
 from app.db.models.project import Project
 from app.db.models.task import Task
 from app.db.models.user import User
@@ -13,7 +12,6 @@ from app.services.activity_service import ActivityLoggerService
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
 STATUS_DONE = "Done"
-STATUS_BLOCKED = "Blocked"
 STATUS_REVIEW = "Review"
 
 
@@ -31,24 +29,6 @@ class TaskService:
         return project.issue_sequence
 
     @staticmethod
-    def get_last_non_blocked_status(db: Session, task_id: int) -> str:
-        # Query activity logs for status changes
-        log = (
-            db.query(ActivityLog)
-            .filter(
-                ActivityLog.task_id == task_id,
-                ActivityLog.field == "status",
-                ActivityLog.new_value != STATUS_BLOCKED,
-            )
-            .order_by(ActivityLog.created_at.desc())
-            .first()
-        )
-
-        if log and log.new_value:
-            return log.new_value
-        return STATUS_TODO
-
-    @staticmethod
     def validate_and_apply_status_transition(
         db: Session, task: Task, new_status: str, actor_id: int, is_admin: bool = False
     ) -> None:
@@ -57,20 +37,6 @@ class TaskService:
 
         old_status = task.status
         if old_status == new_status:
-            return
-
-        # Any -> Blocked is always allowed
-        if new_status == STATUS_BLOCKED:
-            return
-
-        # Blocked -> previous state
-        if old_status == STATUS_BLOCKED:
-            prev_status = TaskService.get_last_non_blocked_status(db, task.id)
-            if new_status != prev_status:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot transition from Blocked to '{new_status}'. Must return to previous state '{prev_status}'.",
-                )
             return
 
         # Allowed main transitions: Todo -> In Progress -> Review -> Done
@@ -99,7 +65,6 @@ class TaskService:
         elif 0 < data["progress_percentage"] < 100 and data["status"] not in (
             STATUS_IN_PROGRESS,
             STATUS_REVIEW,
-            STATUS_BLOCKED,
         ):
             data["status"] = STATUS_IN_PROGRESS
 
@@ -125,7 +90,7 @@ class TaskService:
 
         # Auto sync: 1-99% progress -> status In Progress/Review
         elif "progress_percentage" in updates and 0 < new_progress < 100:
-            if new_status not in (STATUS_IN_PROGRESS, STATUS_REVIEW, STATUS_BLOCKED):
+            if new_status not in (STATUS_IN_PROGRESS, STATUS_REVIEW):
                 updates["status"] = STATUS_IN_PROGRESS
 
         # Clean completed fields if transitioned back from Done
@@ -181,6 +146,8 @@ class TaskService:
         old_progress = task.progress_percentage
         old_assignee = task.assignee_id
         old_priority = task.priority
+        old_is_blocked = task.is_blocked
+        old_blocked_reason = task.blocked_reason
 
         # Handle progress and status synchronization
         new_status = updates.get("status", task.status)
@@ -248,6 +215,28 @@ class TaskService:
                 field="priority",
                 old_val=old_priority,
                 new_val=task.priority,
+            )
+        if old_is_blocked != task.is_blocked:
+            ActivityLoggerService.log(
+                db,
+                actor_id=actor_id,
+                action="Blocked State Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="is_blocked",
+                old_val=str(old_is_blocked),
+                new_val=str(task.is_blocked),
+            )
+        if old_blocked_reason != task.blocked_reason:
+            ActivityLoggerService.log(
+                db,
+                actor_id=actor_id,
+                action="Blocked Reason Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="blocked_reason",
+                old_val=old_blocked_reason,
+                new_val=task.blocked_reason,
             )
 
         return task

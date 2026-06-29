@@ -28,10 +28,16 @@ class TestCreateTask:
         items = client.get("/api/v1/tasks/").json()["items"]
         assert any(t["id"] == task["id"] for t in items)
 
-    def test_create_all_five_statuses(self, client, make_task):
-        for status in ("Todo", "In Progress", "Review", "Blocked", "Done"):
+    def test_create_all_four_statuses(self, client, make_task):
+        for status in ("Todo", "In Progress", "Review", "Done"):
             task = make_task(status=status)
             assert task["status"] == status
+
+    def test_create_legacy_blocked_status_maps_to_flag(self, client, make_task):
+        task = make_task(status="Blocked")
+        assert task["status"] == "In Progress"
+        assert task["is_blocked"] is True
+        assert task["blocked_reason"] == "Migrated from legacy blocked status"
 
     def test_create_all_four_priorities(self, client, make_task):
         for priority in ("Low", "Medium", "High", "Critical"):

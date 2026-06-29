@@ -33,14 +33,19 @@ class TestListTasksBasic:
         resp = client.get("/api/v1/tasks/")
         assert resp.json()["total"] == 2
 
-    def test_task_response_has_all_26_fields(self, client, make_task):
+    def test_task_response_has_canonical_issue_fields(self, client, make_task):
         make_task()
         task = client.get("/api/v1/tasks/").json()["items"][0]
         required = [
             "id",
+            "number",
+            "key",
+            "project_key",
             "title",
             "description",
             "status",
+            "is_blocked",
+            "blocked_reason",
             "priority",
             "department",
             "team",
@@ -153,6 +158,13 @@ class TestListTasksFiltering:
         make_task(status="Todo")
         body = client.get("/api/v1/tasks/?status=Blocked").json()
         assert body["total"] == 0
+
+    def test_filter_legacy_blocked_status_returns_flagged_issues(self, client, make_task):
+        make_task(status="Blocked")
+        make_task(status="Todo")
+        body = client.get("/api/v1/tasks/?status=Blocked").json()
+        assert body["total"] == 1
+        assert body["items"][0]["is_blocked"] is True
 
 
 class TestListTasksSearch:

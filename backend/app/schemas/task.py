@@ -4,7 +4,14 @@ import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from app.schemas.common import PaginatedResponse
 
@@ -15,7 +22,6 @@ class TaskStatus(str, Enum):
     TODO = "Todo"
     IN_PROGRESS = "In Progress"
     REVIEW = "Review"
-    BLOCKED = "Blocked"
     DONE = "Done"
 
 
@@ -69,6 +75,8 @@ class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(default="", min_length=0)
     status: TaskStatus = TaskStatus.TODO
+    is_blocked: bool = False
+    blocked_reason: Optional[str] = None
     priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: Optional[int] = None
     sprint_id: Optional[int] = None
@@ -115,6 +123,19 @@ class TaskCreate(BaseModel):
             raise ValueError("tags may contain at most 4 items")
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_legacy_blocked_status(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if data.get("status") == "Blocked":
+            updated = dict(data)
+            updated["status"] = TaskStatus.IN_PROGRESS.value
+            updated["is_blocked"] = True
+            updated.setdefault("blocked_reason", "Migrated from legacy blocked status")
+            return updated
+        return data
+
 
 # ── TaskUpdate ─────────────────────────────────────────────────────────────────
 
@@ -125,6 +146,8 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
+    is_blocked: Optional[bool] = None
+    blocked_reason: Optional[str] = None
     priority: Optional[TaskPriority] = None
     assignee_id: Optional[int] = None
     sprint_id: Optional[int] = None
@@ -172,6 +195,19 @@ class TaskUpdate(BaseModel):
             raise ValueError("tags may contain at most 4 items")
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_legacy_blocked_status(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if data.get("status") == "Blocked":
+            updated = dict(data)
+            updated["status"] = TaskStatus.IN_PROGRESS.value
+            updated["is_blocked"] = True
+            updated.setdefault("blocked_reason", "Migrated from legacy blocked status")
+            return updated
+        return data
+
 
 # ── TaskResponse ───────────────────────────────────────────────────────────────
 
@@ -191,6 +227,8 @@ class TaskResponse(BaseModel):
     title: str
     description: str
     status: str
+    is_blocked: bool
+    blocked_reason: Optional[str] = None
     priority: str
     quarter: str
     risk_level: str

@@ -2,7 +2,7 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from alembic import context
 
@@ -26,6 +26,13 @@ def get_url() -> str:
     return settings.DATABASE_URL
 
 
+def get_connect_args() -> dict[str, str]:
+    schema = settings.DATABASE_SCHEMA
+    if schema and get_url().startswith("postgresql"):
+        return {"options": f"-csearch_path={schema}"}
+    return {}
+
+
 def run_migrations_offline() -> None:
     url = get_url()
     context.configure(
@@ -33,6 +40,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=bool(settings.DATABASE_SCHEMA),
+        version_table_schema=settings.DATABASE_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -46,10 +55,18 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=get_connect_args(),
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        if settings.DATABASE_SCHEMA and connection.dialect.name == "postgresql":
+            connection.execute(text(f'SET search_path TO "{settings.DATABASE_SCHEMA}"'))
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_schemas=bool(settings.DATABASE_SCHEMA),
+            version_table_schema=settings.DATABASE_SCHEMA,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

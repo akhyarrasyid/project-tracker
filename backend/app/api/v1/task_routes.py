@@ -348,7 +348,7 @@ async def import_csv(
             continue
 
         # 4. Status Validation
-        if status_str not in ["Todo", "In Progress", "Review", "Blocked", "Done"]:
+        if status_str not in ["Todo", "In Progress", "Review", "Done", "Blocked"]:
             errors.append(
                 {
                     "row": idx,
@@ -497,12 +497,12 @@ async def import_csv(
     try:
         for t_data in tasks_to_create:
             from app.schemas.task import TaskCreate as SchemaTaskCreate
-            from app.schemas.task import TaskPriority, TaskStatus
+            from app.schemas.task import TaskPriority
 
             t_create = SchemaTaskCreate(
                 title=cast(str, t_data["title"]),
                 description=cast(str, t_data["description"]),
-                status=TaskStatus(cast(str, t_data["status"])),
+                status=cast(str, t_data["status"]),
                 priority=TaskPriority(cast(str, t_data["priority"])),
                 assignee_id=cast(Optional[int], t_data["assignee_id"]),
                 due_date=cast(datetime.date, t_data["due_date"]),
