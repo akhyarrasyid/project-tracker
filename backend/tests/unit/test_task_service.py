@@ -6,6 +6,8 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import func
 
+import app.db.models  # noqa: F401
+from app.db.base import Base
 from app.db.models.activity_log import ActivityLog
 from app.db.models.project import Project
 from app.db.models.task import Task
@@ -194,6 +196,7 @@ def test_task_service_logs_blocked_flag_changes(db_session):
 
 def test_create_task_allocates_unique_issue_numbers_concurrently():
     assert engine.dialect.name == "postgresql"
+    Base.metadata.create_all(bind=engine)
 
     setup_session = TestingSessionLocal()
     seed = seed_test_hierarchy(setup_session)

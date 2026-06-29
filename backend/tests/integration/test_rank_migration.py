@@ -10,20 +10,19 @@ from sqlalchemy import create_engine, text
 from app.core.config import settings
 from tests.conftest import DATABASE_URL
 
-blocked_flag_migration_path = (
-    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "004_blocked_flag.py"
+rank_migration_path = (
+    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "005_task_rank.py"
 )
-blocked_flag_migration_spec = importlib.util.spec_from_file_location(
-    "blocked_flag_migration", blocked_flag_migration_path
+rank_migration_spec = importlib.util.spec_from_file_location(
+    "rank_migration", rank_migration_path
 )
-assert (
-    blocked_flag_migration_spec is not None
-    and blocked_flag_migration_spec.loader is not None
-)
-blocked_flag_migration = importlib.util.module_from_spec(blocked_flag_migration_spec)
-blocked_flag_migration_spec.loader.exec_module(blocked_flag_migration)
-def test_blocked_status_migration_backfills_flag_and_status():
-    schema = f"mig_{uuid.uuid4().hex}"
+assert rank_migration_spec is not None and rank_migration_spec.loader is not None
+rank_migration = importlib.util.module_from_spec(rank_migration_spec)
+rank_migration_spec.loader.exec_module(rank_migration)
+
+
+def test_task_rank_migration_backfills_deterministically_without_duplicates():
+    schema = f"rank_{uuid.uuid4().hex}"
     bootstrap_engine = create_engine(DATABASE_URL)
     with bootstrap_engine.begin() as connection:
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
@@ -91,6 +90,8 @@ def test_blocked_status_migration_backfills_flag_and_status():
                         title VARCHAR(255) NOT NULL,
                         description TEXT NOT NULL DEFAULT '',
                         status VARCHAR(50) NOT NULL,
+                        is_blocked BOOLEAN NOT NULL DEFAULT false,
+                        blocked_reason TEXT,
                         priority VARCHAR(50) NOT NULL DEFAULT 'Medium',
                         quarter VARCHAR(5) NOT NULL DEFAULT 'Q1',
                         risk_level VARCHAR(10) NOT NULL DEFAULT 'Low',
@@ -114,19 +115,7 @@ def test_blocked_status_migration_backfills_flag_and_status():
                         tags JSON NOT NULL DEFAULT '[]'::json,
                         deleted_at TIMESTAMPTZ,
                         deleted_by_id INTEGER,
-                        CONSTRAINT ck_tasks_status CHECK (status IN ('Todo', 'In Progress', 'Review', 'Done', 'Blocked'))
-                    );
-
-                    CREATE TABLE activity_logs (
-                        id SERIAL PRIMARY KEY,
-                        task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
-                        project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-                        actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-                        action VARCHAR(100) NOT NULL,
-                        field VARCHAR(100),
-                        old_value TEXT,
-                        new_value TEXT,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        CONSTRAINT ck_tasks_status CHECK (status IN ('Todo', 'In Progress', 'Review', 'Done'))
                     );
                     """
                 )
@@ -167,73 +156,70 @@ def test_blocked_status_migration_backfills_flag_and_status():
                 text(
                     """
                     INSERT INTO projects (name, key, description, team_id, issue_sequence, status)
-                    VALUES ('Migration Project', 'MIG', 'Migration Project', :team_id, 1, 'ACTIVE')
+                    VALUES ('Migration Project', 'MIG', 'Migration Project', :team_id, 3, 'ACTIVE')
                     RETURNING id
                     """
                 ),
                 {"team_id": team_id},
             ).scalar_one()
+
             connection.execute(
                 text(
                     """
                     INSERT INTO tasks (
-                        project_id, sprint_id, epic_id, number, title, description, status,
-                        priority, quarter, risk_level, customer_impact, assignee_id,
-                        created_by_id, due_date, story_points, estimated_hours,
-                        actual_hours, progress_percentage, attachments_count,
-                        comments_count, watchers_count, sla_hours, dependencies, tags
-                    ) VALUES (
-                        :project_id, NULL, NULL, 1, 'Legacy blocked', 'Needs migration', 'Blocked',
-                        'High', 'Q1', 'High', 'Low', NULL,
-                        :user_id, CURRENT_DATE, 3, 8,
-                        0, 40, 0,
-                        0, 0, 48, '[]'::json, '[]'::json
-                    )
+                        project_id, number, title, description, status, priority, quarter,
+                        risk_level, customer_impact, created_by_id, due_date, story_points,
+                        estimated_hours, actual_hours, progress_percentage, attachments_count,
+                        comments_count, watchers_count, sla_hours, dependencies, tags, created_at
+                    ) VALUES
+                        (:project_id, 1, 'Todo first', 'Todo first', 'Todo', 'Medium', 'Q1',
+                         'Low', 'None', :user_id, CURRENT_DATE, 3, 8, 0, 0, 0, 0, 0, 48, '[]'::json, '[]'::json, TIMESTAMP '2026-06-01 10:00:00'),
+                        (:project_id, 2, 'Todo second', 'Todo second', 'Todo', 'Medium', 'Q1',
+                         'Low', 'None', :user_id, CURRENT_DATE, 3, 8, 0, 0, 0, 0, 0, 48, '[]'::json, '[]'::json, TIMESTAMP '2026-06-01 11:00:00'),
+                        (:project_id, 3, 'Review only', 'Review only', 'Review', 'High', 'Q1',
+                         'Low', 'None', :user_id, CURRENT_DATE, 3, 8, 0, 50, 0, 0, 0, 48, '[]'::json, '[]'::json, TIMESTAMP '2026-06-01 12:00:00')
                     """
                 ),
                 {"project_id": project_id, "user_id": user_id},
-            )
-            task_id = connection.execute(
-                text("SELECT id FROM tasks WHERE project_id = :project_id AND number = 1"),
-                {"project_id": project_id},
-            ).scalar_one()
-            connection.execute(
-                text(
-                    """
-                    INSERT INTO activity_logs (
-                        task_id, project_id, actor_id, action, field, old_value, new_value
-                    ) VALUES (
-                        :task_id, :project_id, :actor_id, 'Status Changed',
-                        'status', 'Review', 'Blocked'
-                    )
-                    """
-                ),
-                {"task_id": task_id, "project_id": project_id, "actor_id": user_id},
             )
 
         with schema_engine.begin() as connection:
             migration_context = MigrationContext.configure(connection)
             operations = Operations(migration_context)
-            previous_op = blocked_flag_migration.op
-            blocked_flag_migration.op = operations
+            previous_op = rank_migration.op
+            rank_migration.op = operations
             try:
-                blocked_flag_migration.upgrade()
+                rank_migration.upgrade()
             finally:
-                blocked_flag_migration.op = previous_op
+                rank_migration.op = previous_op
 
         with schema_engine.begin() as connection:
-            row = connection.execute(
+            rows = connection.execute(
                 text(
                     """
-                    SELECT status, is_blocked, blocked_reason
+                    SELECT status, title, rank
                     FROM tasks
-                    WHERE title = 'Legacy blocked'
+                    ORDER BY status, rank, id
                     """
                 )
-            ).one()
-            assert row.status == "Review"
-            assert row.is_blocked is True
-            assert row.blocked_reason == "Migrated from legacy blocked status"
+            ).all()
+            duplicates = connection.execute(
+                text(
+                    """
+                    SELECT project_id, status, rank, COUNT(*) AS count
+                    FROM tasks
+                    GROUP BY project_id, status, rank
+                    HAVING COUNT(*) > 1
+                    """
+                )
+            ).all()
+
+        assert duplicates == []
+        assert rows == [
+            ("Review", "Review only", 1024),
+            ("Todo", "Todo first", 1024),
+            ("Todo", "Todo second", 2048),
+        ]
     finally:
         settings.DATABASE_SCHEMA = previous_schema
         if previous_env_schema is None:
