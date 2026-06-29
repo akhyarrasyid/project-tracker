@@ -8,6 +8,7 @@ import { metaApi } from "../../../api/meta";
 import { taskApi } from "../../../api/tasks";
 import { queryClient } from "../../../app/query-client";
 import { AppProviders } from "../../../app/providers";
+import type { IssueWatchersResponse } from "../../../types/notification";
 import type { IssueActivity, IssueComment, Task } from "../../../types/task";
 import { IssueDetailPanel } from "./IssueDetailPanel";
 
@@ -39,6 +40,9 @@ vi.mock("../../../api/issues", () => ({
     getComments: vi.fn(),
     createComment: vi.fn(),
     getActivities: vi.fn(),
+    getWatchers: vi.fn(),
+    watchMe: vi.fn(),
+    unwatchMe: vi.fn(),
     deleteById: vi.fn(),
     delete: vi.fn(),
   },
@@ -109,6 +113,16 @@ const baseIssue: Task = {
 
 const baseActivities: IssueActivity[] = [];
 const baseComments: IssueComment[] = [];
+const baseWatchers: IssueWatchersResponse = {
+  issue_id: 12,
+  count: 2,
+  is_watching: true,
+  can_manage_watchers: true,
+  watchers: [
+    { id: 7, username: "admin", full_name: "Administrator" },
+    { id: 10, username: "amanda", full_name: "Amanda" },
+  ],
+};
 
 function renderPanel() {
   return render(
@@ -127,6 +141,14 @@ beforeEach(() => {
   vi.mocked(issueApi.patch).mockResolvedValue(baseIssue);
   vi.mocked(issueApi.getComments).mockResolvedValue(baseComments);
   vi.mocked(issueApi.getActivities).mockResolvedValue(baseActivities);
+  vi.mocked(issueApi.getWatchers).mockResolvedValue(baseWatchers);
+  vi.mocked(issueApi.watchMe).mockResolvedValue(baseWatchers);
+  vi.mocked(issueApi.unwatchMe).mockResolvedValue({
+    ...baseWatchers,
+    count: 1,
+    is_watching: false,
+    watchers: [{ id: 10, username: "amanda", full_name: "Amanda" }],
+  });
   vi.mocked(issueApi.createComment).mockResolvedValue({
     id: 91,
     task_id: 12,
@@ -239,6 +261,20 @@ describe("IssueDetailPanel", () => {
       );
     });
     expect(await screen.findByText("Please verify callback retries.")).toBeInTheDocument();
+  });
+
+  it("renders watchers and toggles watch state", async () => {
+    renderPanel();
+
+    expect(await screen.findByRole("button", { name: /Watching/i })).toBeInTheDocument();
+    expect(
+      screen.getByText("You'll be notified for comments and issue changes."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Watching/i }));
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.unwatchMe)).toHaveBeenCalledWith(12);
+    });
   });
 
   it("deletes only through overflow menu with custom dialog", async () => {

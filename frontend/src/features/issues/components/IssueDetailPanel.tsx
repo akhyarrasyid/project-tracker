@@ -4,6 +4,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  Eye,
+  EyeOff,
   LoaderCircle,
   MoreHorizontal,
   Trash2,
@@ -15,6 +17,7 @@ import { issueApi } from "../../../api/issues";
 import { metaApi } from "../../../api/meta";
 import { taskApi } from "../../../api/tasks";
 import { queryClient } from "../../../app/query-client";
+import type { IssueWatchersResponse } from "../../../types/notification";
 import { useIssueQuery } from "../hooks/useIssueQuery";
 import type {
   IssueActivity,
@@ -107,6 +110,12 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
         sort_order: "asc",
       }),
     enabled: Boolean(issue?.project_id),
+  });
+
+  const watchersQuery = useQuery({
+    queryKey: ["issue-watchers", issueId],
+    queryFn: () => issueApi.getWatchers(issueId!),
+    enabled: typeof issueId === "number",
   });
 
   useEffect(() => {
@@ -255,6 +264,37 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
       if (draft?.project_key) {
         await queryClient.invalidateQueries({ queryKey: ["board", draft.project_key] });
       }
+    },
+  });
+
+  const watchMutation = useMutation({
+    mutationFn: async (nextWatching: boolean) =>
+      nextWatching ? issueApi.watchMe(issueId!) : issueApi.unwatchMe(issueId!),
+    onMutate: async (nextWatching) => {
+      await queryClient.cancelQueries({ queryKey: ["issue-watchers", issueId] });
+      const previousWatchers = queryClient.getQueryData<IssueWatchersResponse>([
+        "issue-watchers",
+        issueId,
+      ]);
+      if (previousWatchers) {
+        queryClient.setQueryData<IssueWatchersResponse>(["issue-watchers", issueId], {
+          ...previousWatchers,
+          is_watching: nextWatching,
+        });
+      }
+      return { previousWatchers };
+    },
+    onError: (_error, _nextWatching, context) => {
+      if (context?.previousWatchers) {
+        queryClient.setQueryData(["issue-watchers", issueId], context.previousWatchers);
+      }
+    },
+    onSuccess: (watchers) => {
+      queryClient.setQueryData(["issue-watchers", issueId], watchers);
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["issue-watchers", issueId] });
+      await queryClient.invalidateQueries({ queryKey: ["issue", issueKey] });
     },
   });
 
@@ -592,6 +632,59 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                 </div>
               </div>
 
+              <div className="rounded-md border border-neutral-200 px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[12px] text-neutral-500">Watchers</div>
+                    <div className="mt-1 text-sm font-medium text-neutral-900">
+                      {watchersQuery.data?.count ?? draft.watchers_count}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      watchMutation.mutate(!(watchersQuery.data?.is_watching ?? false))
+                    }
+                    disabled={watchMutation.isPending || watchersQuery.isLoading}
+                    className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {watchersQuery.data?.is_watching ? (
+                      <>
+                        <EyeOff className="h-4 w-4" />
+                        Watching
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4" />
+                        Watch
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {watchersQuery.data?.watchers.length ? (
+                    watchersQuery.data.watchers.map((watcher) => (
+                      <div
+                        key={watcher.id}
+                        className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-2.5 py-1.5 text-[12px] text-neutral-700"
+                      >
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-100 text-[11px] font-medium text-neutral-700">
+                          {getInitials(watcher.full_name)}
+                        </span>
+                        <span>{watcher.full_name}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-[12px] text-neutral-500">
+                      No active watchers.
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 text-[12px] text-neutral-500">
+                  You&apos;ll be notified for comments and issue changes.
+                </div>
+              </div>
+
               <label className="block">
                 <div className="mb-1 text-[12px] text-neutral-500">Blocked</div>
                 <label className="inline-flex items-center gap-2 text-sm text-neutral-700">
@@ -735,4 +828,13 @@ function PropertyRow({ label, value }: { label: string; value: string }) {
       <div className="text-right text-neutral-800">{value}</div>
     </div>
   );
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }

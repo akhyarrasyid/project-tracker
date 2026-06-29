@@ -1,8 +1,9 @@
-import { Home, LogOut, Search, UserCircle2 } from "lucide-react";
+import { Bell, Home, LogOut, Search, UserCircle2 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { LoginPage } from "../components/LoginPage";
 import { useAuth } from "../contexts/useAuth";
+import { useUnreadNotificationCountQuery } from "../features/notifications/hooks/useUnreadNotificationCountQuery";
 import { useProjectsQuery } from "../features/projects/hooks/useProjectsQuery";
 
 function cn(...values: Array<string | false | null | undefined>) {
@@ -12,6 +13,7 @@ function cn(...values: Array<string | false | null | undefined>) {
 export function WorkspaceLayout() {
   const { user, loading, logout } = useAuth();
   const projectsQuery = useProjectsQuery();
+  const unreadCountQuery = useUnreadNotificationCountQuery();
 
   if (loading) {
     return (
@@ -46,6 +48,27 @@ export function WorkspaceLayout() {
 
         <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
           <div className="space-y-1">
+            <NavLink
+              to="/inbox"
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors",
+                  isActive ? "bg-neutral-800 text-white" : "text-neutral-400 hover:bg-neutral-900 hover:text-white",
+                )
+              }
+            >
+              <span className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Inbox
+              </span>
+              {unreadCountQuery.data?.unread_count ? (
+                <span className="rounded-full bg-neutral-700 px-2 py-0.5 text-[11px] text-white">
+                  {unreadCountQuery.data.unread_count > 99
+                    ? "99+"
+                    : unreadCountQuery.data.unread_count}
+                </span>
+              ) : null}
+            </NavLink>
             <NavLink
               to="/my-issues"
               className={({ isActive }) =>

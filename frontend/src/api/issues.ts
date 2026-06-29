@@ -1,4 +1,5 @@
 import client from "./client";
+import type { IssueWatchersResponse } from "../types/notification";
 import type {
   IssueActivity,
   IssueComment,
@@ -35,6 +36,21 @@ export const issueApi = {
   getActivities: (issueId: number) =>
     client
       .get<IssueActivity[]>(`/api/v1/issues/${issueId}/activities`)
+      .then((response) => response.data),
+
+  getWatchers: (issueId: number) =>
+    client
+      .get<IssueWatchersResponse>(`/api/v1/issues/${issueId}/watchers`)
+      .then((response) => response.data),
+
+  watchMe: (issueId: number) =>
+    client
+      .post<IssueWatchersResponse>(`/api/v1/issues/${issueId}/watchers/me`)
+      .then((response) => response.data),
+
+  unwatchMe: (issueId: number) =>
+    client
+      .delete<IssueWatchersResponse>(`/api/v1/issues/${issueId}/watchers/me`)
       .then((response) => response.data),
 
   deleteById: (issueId: number) => client.delete(`/api/v1/issues/${issueId}`),

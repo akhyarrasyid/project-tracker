@@ -3,6 +3,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import { WorkspaceLayout } from "../layouts/WorkspaceLayout";
 import { ProjectLayout } from "../layouts/ProjectLayout";
 import { CalendarPage } from "../routes/CalendarPage";
+import { InboxPage } from "../routes/InboxPage";
 import { IssuePage } from "../routes/IssuePage";
 import { IssuesPage } from "../routes/IssuesPage";
 import { MyIssuesPage } from "../routes/MyIssuesPage";
@@ -15,6 +16,7 @@ export function createAppRouter() {
       element: <WorkspaceLayout />,
       children: [
         { index: true, element: <Navigate to="/my-issues" replace /> },
+        { path: "inbox", element: <InboxPage /> },
         { path: "my-issues", element: <MyIssuesPage /> },
         { path: "issues/:issueKey", element: <IssuePage /> },
         {
