@@ -44,9 +44,9 @@ with bootstrap_engine.begin() as connection:
     connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{TEST_SCHEMA}"'))
 bootstrap_engine.dispose()
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+from app.db.base import Base  # noqa: E402
+from app.db.session import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 # ── In-memory SQLite for tests ────────────────────────────────────────────────
 engine = create_engine(
