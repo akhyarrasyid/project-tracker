@@ -36,6 +36,12 @@ class Task(Base):
         "User", foreign_keys="Task.assignee_id", lazy="joined"
     )
     creator = relationship("User", foreign_keys="Task.created_by_id", lazy="joined")
+    parent = relationship(
+        "Task",
+        remote_side="Task.id",
+        foreign_keys="Task.parent_id",
+        lazy="selectin",
+    )
 
     @property
     def department(self) -> Optional[str]:
@@ -88,6 +94,10 @@ class Task(Base):
     )
     number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rank: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1024)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("tasks.id", ondelete=ONDELETE_SET_NULL), nullable=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
@@ -192,4 +202,10 @@ class Task(Base):
         Index("ix_tasks_due_date", "due_date"),
         Index("ix_tasks_created_at", "created_at"),
         Index("ix_tasks_project_status_rank", "project_id", "status", "rank"),
+        Index("ix_tasks_parent_id", "parent_id"),
+        CheckConstraint("version >= 1", name="ck_tasks_version_positive"),
+        CheckConstraint(
+            "parent_id IS NULL OR parent_id <> id",
+            name="ck_tasks_parent_not_self",
+        ),
     )

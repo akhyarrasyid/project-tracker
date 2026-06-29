@@ -79,6 +79,7 @@ class TaskCreate(BaseModel):
     blocked_reason: Optional[str] = None
     priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None
     due_date: datetime.date = Field(...)
@@ -98,6 +99,13 @@ class TaskCreate(BaseModel):
     def strip_title(cls, v: object) -> object:
         if isinstance(v, str):
             v = v.strip()
+        return v
+
+    @field_validator("blocked_reason", mode="before")
+    @classmethod
+    def strip_blocked_reason(cls, v: object) -> object:
+        if isinstance(v, str):
+            v = v.strip() or None
         return v
 
     @field_validator("story_points")
@@ -150,6 +158,7 @@ class TaskUpdate(BaseModel):
     blocked_reason: Optional[str] = None
     priority: Optional[TaskPriority] = None
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None
     due_date: Optional[datetime.date] = None
@@ -170,6 +179,13 @@ class TaskUpdate(BaseModel):
     def strip_title(cls, v: object) -> object:
         if isinstance(v, str):
             v = v.strip()
+        return v
+
+    @field_validator("blocked_reason", mode="before")
+    @classmethod
+    def strip_blocked_reason(cls, v: object) -> object:
+        if isinstance(v, str):
+            v = v.strip() or None
         return v
 
     @field_validator("story_points")
@@ -220,6 +236,7 @@ class TaskResponse(BaseModel):
     id: int
     number: int
     rank: int
+    version: int
     key: Optional[str] = None
     project_key: Optional[str] = None
     project_id: int
@@ -235,6 +252,7 @@ class TaskResponse(BaseModel):
     risk_level: str
     customer_impact: str
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     created_by_id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -287,3 +305,4 @@ class IssueMoveRequest(BaseModel):
     status: TaskStatus
     before_issue_id: Optional[int] = None
     after_issue_id: Optional[int] = None
+    expected_version: Optional[int] = Field(default=None, ge=1)

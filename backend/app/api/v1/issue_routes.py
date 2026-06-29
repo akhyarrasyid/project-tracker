@@ -8,9 +8,17 @@ from sqlalchemy.orm import Session
 from app.api.v1.task_routes import TaskFilterParams, create_task, list_tasks
 from app.core.exceptions import NotFoundException
 from app.core.security import check_project_access, get_current_user
+from app.db.models.activity_log import ActivityLog
+from app.db.models.comment import Comment
 from app.db.models.user import User
 from app.db.repositories.task_repository import TaskRepository
 from app.db.session import get_db
+from app.schemas.issue import (
+    IssueActivityResponse,
+    IssueCommentCreate,
+    IssueCommentResponse,
+    IssueUpdateRequest,
+)
 from app.schemas.task import (
     IssueMoveRequest,
     TaskCreate,
@@ -37,6 +45,13 @@ def _resolve_issue(issue_key: str, db: Session):
     return task
 
 
+def _resolve_issue_by_id(issue_id: int, db: Session):
+    task = TaskRepository.get_by_id(db, issue_id)
+    if task is None:
+        raise NotFoundException("Issue", issue_id)
+    return task
+
+
 @router.get("/", summary="List issues", response_model=TaskListResponse)
 def list_issues(
     db: Annotated[Session, Depends(get_db)],
@@ -59,6 +74,100 @@ def create_issue(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> TaskResponse:
     return create_task(issue_in, project_id, db, current_user)
+
+
+@router.patch("/{issue_id:int}", summary="Update an issue", response_model=TaskResponse)
+def patch_issue(
+    issue_id: int,
+    issue_in: IssueUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TaskResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    check_project_access(db, current_user, task.project_id, min_role="MEMBER")
+    task_update = TaskUpdate(
+        **issue_in.model_dump(exclude_unset=True, exclude={"expected_version"})
+    )
+    return TaskService.update_task(
+        db,
+        task,
+        task_update,
+        current_user.id,
+        expected_version=issue_in.expected_version,
+    )
+
+
+@router.get("/{issue_id:int}/comments", summary="List issue comments", response_model=list[IssueCommentResponse])
+def list_issue_comments(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[IssueCommentResponse]:
+    task = _resolve_issue_by_id(issue_id, db)
+    check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    comments = (
+        db.query(Comment)
+        .filter(Comment.task_id == issue_id, Comment.deleted_at.is_(None))
+        .order_by(Comment.created_at.asc(), Comment.id.asc())
+        .all()
+    )
+    return comments
+
+
+@router.post(
+    "/{issue_id:int}/comments",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create issue comment",
+    response_model=IssueCommentResponse,
+)
+def create_issue_comment(
+    issue_id: int,
+    payload: IssueCommentCreate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueCommentResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    check_project_access(db, current_user, task.project_id, min_role="MEMBER")
+    comment = TaskService.create_comment(
+        db,
+        task_id=issue_id,
+        author_id=current_user.id,
+        content=payload.content,
+        parent_id=payload.parent_id,
+    )
+    return comment
+
+
+@router.get(
+    "/{issue_id:int}/activities",
+    summary="List issue activities",
+    response_model=list[IssueActivityResponse],
+)
+def list_issue_activities(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[IssueActivityResponse]:
+    task = _resolve_issue_by_id(issue_id, db)
+    check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    activities = (
+        db.query(ActivityLog)
+        .filter(ActivityLog.task_id == issue_id)
+        .order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc())
+        .all()
+    )
+    return activities
+
+
+@router.get("/{issue_id:int}", summary="Get issue by id", response_model=TaskResponse)
+def get_issue_by_id(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TaskResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    return task
 
 
 @router.get("/{issue_key}", summary="Get issue by key", response_model=TaskResponse)
@@ -107,7 +216,36 @@ def move_issue(
         actor_id=current_user.id,
         before_issue_id=payload.before_issue_id,
         after_issue_id=payload.after_issue_id,
+        expected_version=payload.expected_version,
     )
+
+
+@router.delete(
+    "/{issue_id:int}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an issue by id",
+)
+def delete_issue_by_id(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(
+        db, current_user, task.project_id, min_role="MEMBER"
+    )
+    if (
+        current_user.role != "admin"
+        and membership is not None
+        and membership.project_role == "MEMBER"
+        and (task.created_by_id != current_user.id or task.status == "Done")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Members may only delete their own unfinished issues",
+        )
+    TaskService.soft_delete_task(db, task, current_user.id)
+    return None
 
 
 @router.delete(
