@@ -19,6 +19,7 @@ from app.schemas.issue import (
     IssueCommentResponse,
     IssueUpdateRequest,
 )
+from app.schemas.notification import IssueWatchersResponse
 from app.schemas.task import (
     IssueMoveRequest,
     TaskCreate,
@@ -26,7 +27,9 @@ from app.schemas.task import (
     TaskResponse,
     TaskUpdate,
 )
+from app.services.notification_service import NotificationService
 from app.services.task_service import TaskService
+from app.services.watcher_service import WatcherService
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -157,6 +160,160 @@ def list_issue_activities(
         .all()
     )
     return activities
+
+
+@router.get(
+    "/{issue_id:int}/watchers",
+    summary="List issue watchers",
+    response_model=IssueWatchersResponse,
+)
+def list_issue_watchers(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueWatchersResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    payload = NotificationService.build_watchers_payload(
+        db,
+        issue=task,
+        current_user=current_user,
+        can_manage_watchers=WatcherService.can_manage_others(current_user, membership),
+    )
+    return IssueWatchersResponse(**payload)
+
+
+@router.post(
+    "/{issue_id:int}/watchers/me",
+    summary="Watch an issue",
+    response_model=IssueWatchersResponse,
+)
+def watch_issue_me(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueWatchersResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    WatcherService.ensure_watcher(
+        db,
+        issue_id=task.id,
+        user_id=current_user.id,
+        actor_id=current_user.id,
+        auto=False,
+    )
+    db.commit()
+    payload = NotificationService.build_watchers_payload(
+        db,
+        issue=task,
+        current_user=current_user,
+        can_manage_watchers=WatcherService.can_manage_others(current_user, membership),
+    )
+    return IssueWatchersResponse(**payload)
+
+
+@router.delete(
+    "/{issue_id:int}/watchers/me",
+    summary="Unwatch an issue",
+    response_model=IssueWatchersResponse,
+)
+def unwatch_issue_me(
+    issue_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueWatchersResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    WatcherService.disable_watcher(
+        db,
+        issue_id=task.id,
+        user_id=current_user.id,
+        actor_id=current_user.id,
+    )
+    db.commit()
+    payload = NotificationService.build_watchers_payload(
+        db,
+        issue=task,
+        current_user=current_user,
+        can_manage_watchers=WatcherService.can_manage_others(current_user, membership),
+    )
+    return IssueWatchersResponse(**payload)
+
+
+@router.post(
+    "/{issue_id:int}/watchers/{user_id:int}",
+    summary="Add another watcher to an issue",
+    response_model=IssueWatchersResponse,
+)
+def add_issue_watcher(
+    issue_id: int,
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueWatchersResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    if not WatcherService.can_manage_others(current_user, membership):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient project permissions",
+        )
+    watcher, created = WatcherService.ensure_watcher(
+        db,
+        issue_id=task.id,
+        user_id=user_id,
+        actor_id=current_user.id,
+        auto=False,
+    )
+    if created:
+        NotificationService.notify_watcher_added(
+            db,
+            issue=task,
+            actor_id=current_user.id,
+            recipient_id=watcher.user_id,
+        )
+    db.commit()
+    payload = NotificationService.build_watchers_payload(
+        db,
+        issue=task,
+        current_user=current_user,
+        can_manage_watchers=True,
+    )
+    return IssueWatchersResponse(**payload)
+
+
+@router.delete(
+    "/{issue_id:int}/watchers/{user_id:int}",
+    summary="Remove another watcher from an issue",
+    response_model=IssueWatchersResponse,
+)
+def remove_issue_watcher(
+    issue_id: int,
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> IssueWatchersResponse:
+    task = _resolve_issue_by_id(issue_id, db)
+    _, membership = check_project_access(db, current_user, task.project_id, min_role="VIEWER")
+    if not WatcherService.can_manage_others(current_user, membership):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient project permissions",
+        )
+    WatcherService.disable_watcher(
+        db,
+        issue_id=task.id,
+        user_id=user_id,
+        actor_id=current_user.id,
+    )
+    db.commit()
+    payload = NotificationService.build_watchers_payload(
+        db,
+        issue=task,
+        current_user=current_user,
+        can_manage_watchers=True,
+    )
+    return IssueWatchersResponse(**payload)
 
 
 @router.get("/{issue_id:int}", summary="Get issue by id", response_model=TaskResponse)

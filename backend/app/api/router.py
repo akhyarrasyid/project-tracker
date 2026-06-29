@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.v1.auth_routes import router as auth_router
 from app.api.v1.issue_routes import router as issues_router
 from app.api.v1.meta_routes import router as meta_router
+from app.api.v1.notification_routes import router as notifications_router
 from app.api.v1.project_routes import router as projects_router
 from app.api.v1.task_routes import router as tasks_router
 
@@ -14,3 +15,4 @@ api_router.include_router(projects_router)
 api_router.include_router(meta_router)
 api_router.include_router(tasks_router)
 api_router.include_router(issues_router)
+api_router.include_router(notifications_router)

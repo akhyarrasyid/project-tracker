@@ -11,6 +11,8 @@ from app.db.models.task import Task
 from app.db.models.user import User
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from app.services.activity_service import ActivityLoggerService
+from app.services.notification_service import NotificationService
+from app.services.watcher_service import WatcherService
 
 STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
@@ -288,6 +290,27 @@ class TaskService:
             task_id=task.id,
             project_id=project_id,
         )
+        WatcherService.ensure_watcher(
+            db,
+            issue_id=task.id,
+            user_id=creator_id,
+            actor_id=creator_id,
+            auto=True,
+        )
+        if task.assignee_id is not None:
+            WatcherService.ensure_watcher(
+                db,
+                issue_id=task.id,
+                user_id=task.assignee_id,
+                actor_id=creator_id,
+                auto=True,
+            )
+            NotificationService.notify_issue_assigned(
+                db,
+                issue=task,
+                actor_id=creator_id,
+                assignee_id=task.assignee_id,
+            )
 
         if commit:
             db.commit()
@@ -403,7 +426,9 @@ class TaskService:
             return task
 
         task.version = original_version + 1
+        changes: dict[str, tuple[Any, Any]] = {}
         if old_status != task.status:
+            changes["status"] = (old_status, task.status)
             ActivityLoggerService.log(
                 db,
                 actor_id=actor_id,
@@ -425,6 +450,12 @@ class TaskService:
                 old_val=str(old_rank),
                 new_val=str(task.rank),
             )
+        NotificationService.notify_issue_updated(
+            db,
+            issue=task,
+            actor_id=actor_id,
+            changes=changes,
+        )
 
         db.commit()
         db.refresh(task)
@@ -468,6 +499,12 @@ class TaskService:
 
         locked_task.version += 1
         TaskService._log_task_changes(db, locked_task, actor_id, changes)
+        NotificationService.notify_issue_updated(
+            db,
+            issue=locked_task,
+            actor_id=actor_id,
+            changes=changes,
+        )
         db.commit()
         db.refresh(locked_task)
         return locked_task
@@ -511,6 +548,12 @@ class TaskService:
             project_id=task.project_id,
             field="comment",
             new_val=content,
+        )
+        NotificationService.notify_issue_comment(
+            db,
+            issue=task,
+            actor_id=author_id,
+            comment=comment,
         )
         db.commit()
         db.refresh(comment)
