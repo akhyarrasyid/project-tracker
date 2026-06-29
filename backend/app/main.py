@@ -69,7 +69,11 @@ def create_app() -> FastAPI:
         except Exception as exc:
             return JSONResponse(
                 status_code=503,
-                content={"status": "unavailable", "detail": str(exc)},
+                content={
+                    "status": "unavailable",
+                    "detail": "Database connection failed",
+                    "error_type": exc.__class__.__name__,
+                },
             )
 
     return app

@@ -7,18 +7,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from pydantic import ValidationError
-from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-# Import models so metadata is populated
-from app.db.base import Base
 from app.db.models.department import Department
 from app.db.models.project import Project
 from app.db.models.sprint import Sprint
 from app.db.models.task import Task
 from app.db.models.team import Team
 from app.db.models.user import User
-from app.db.session import SessionLocal, engine
+from app.db.session import SessionLocal
 from app.schemas.task import TaskCreate
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -445,9 +442,6 @@ def cmd_reset(records: List[Dict[str, Any]]) -> None:
 
 
 def main() -> None:
-    if not inspect(engine).has_table("alembic_version"):
-        Base.metadata.create_all(bind=engine)
-
     parser = argparse.ArgumentParser(description="Project Tracker seed service")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(

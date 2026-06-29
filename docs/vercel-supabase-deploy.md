@@ -30,19 +30,29 @@ Use your own generated value and never commit it.
 
 1. Create a new Vercel project from this repository.
 2. Set **Root Directory** to `backend`.
-3. Add these environment variables:
+3. In Supabase, open **Connect** and copy the **Transaction Pooler** connection string directly.
+4. Verify the runtime URL matches these rules:
+
+- username format: `postgres.<PROJECT_REF>`
+- port: `6543`
+- password: the valid database password, percent-encoded if it contains reserved URL characters
+- do not reuse the older Session Pooler string
+
+5. Add these backend environment variables in Vercel:
 
 ```text
-DATABASE_URL=postgresql://postgres.your-project:password@aws-1-region.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.<project_ref>:<percent_encoded_password>@aws-<region>.pooler.supabase.com:6543/postgres
 SECRET_KEY=<paste-generated-secret>
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
-CORS_ORIGINS=["https://technical-test-project-tracker.vercel.app"]
+ENVIRONMENT=production
+DEBUG=false
+CORS_ORIGINS=["https://<frontend-domain>"]
 ```
 
-4. Deploy the backend.
-5. Copy the deployed backend URL, for example:
+6. Deploy the backend.
+7. Copy the deployed backend URL, for example:
 
 ```text
 https://technical-test-project-tracker-api.vercel.app
@@ -73,19 +83,35 @@ Redeploy the backend after saving the change.
 ## 5. Local Development Example
 
 ```text
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/project_tracker
-TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/project_tracker_test
-TEST_DATABASE_ADMIN_URL=postgresql://postgres:postgres@localhost:5432/postgres
-SUPABASE_DATABASE_URL=postgresql://postgres.your-project:password@aws-1-region.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://<local_dev_user>:<local_dev_password>@127.0.0.1:5432/<local_dev_database>
+TEST_DATABASE_URL=postgresql://<test_user>:<test_password>@127.0.0.1:55432/project_tracker_test
+TEST_DATABASE_ADMIN_URL=postgresql://<test_user>:<test_password>@127.0.0.1:55432/postgres
+SUPABASE_DATABASE_URL=postgresql://postgres.<project_ref>:<percent_encoded_password>@aws-<region>.pooler.supabase.com:6543/postgres
 
 SECRET_KEY=replace-me
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
+ENVIRONMENT=development
+DEBUG=false
 
-CORS_ORIGINS=["http://localhost:5173","https://technical-test-project-tracker.vercel.app"]
+CORS_ORIGINS=["http://localhost:5173","https://<frontend-domain>"]
 VITE_API_URL=http://localhost:8000
 ```
+
+## Runtime Variable Roles
+
+- `DATABASE_URL`
+  - Runtime application database only.
+  - Local development uses local PostgreSQL.
+  - Vercel production uses the Supabase Transaction Pooler URL.
+- `TEST_DATABASE_URL`
+  - Isolated local PostgreSQL database for automated tests.
+- `TEST_DATABASE_ADMIN_URL`
+  - Admin connection for provisioning the local test database.
+- `SUPABASE_DATABASE_URL`
+  - Only for explicit migration verification, smoke checks, and release validation.
+  - The application must not read this as its runtime database.
 
 ## 6. Post-Deploy Smoke Check
 
@@ -95,3 +121,10 @@ VITE_API_URL=http://localhost:8000
 4. Open an issue detail route directly.
 5. Confirm API calls go to the deployed backend origin.
 6. Confirm there are no CORS errors in the browser console.
+7. Confirm backend endpoints respond:
+
+```text
+GET /health -> 200
+GET /readiness -> 200
+GET /docs -> 200
+```

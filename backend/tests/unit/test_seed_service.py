@@ -221,11 +221,7 @@ def test_main_seed(mock_cmd_seed, mock_load, mock_parse, mock_records):
     mock_parse.return_value = argparse.Namespace(
         validate=False, dry_run=False, seed=True, reset=False
     )
-    with patch("app.services.seed_service.inspect") as mock_inspect:
-        mock_inspect.return_value.has_table.return_value = False
-        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
-            seed_service.main()
-    mock_create_all.assert_called_once_with(bind=seed_service.engine)
+    seed_service.main()
     mock_cmd_seed.assert_called_once_with(mock_records)
 
 
@@ -237,18 +233,14 @@ def test_main_reset(mock_cmd_reset, mock_load, mock_parse, mock_records):
     mock_parse.return_value = argparse.Namespace(
         validate=False, dry_run=False, seed=False, reset=True
     )
-    with patch("app.services.seed_service.inspect") as mock_inspect:
-        mock_inspect.return_value.has_table.return_value = False
-        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
-            seed_service.main()
-    mock_create_all.assert_called_once_with(bind=seed_service.engine)
+    seed_service.main()
     mock_cmd_reset.assert_called_once_with(mock_records)
 
 
 @patch("argparse.ArgumentParser.parse_args")
 @patch("app.services.seed_service._load_seed_data")
 @patch("app.services.seed_service.cmd_seed")
-def test_main_skips_create_all_when_alembic_version_exists(
+def test_main_never_calls_create_all(
     mock_cmd_seed, mock_load, mock_parse, mock_records
 ):
     mock_load.return_value = mock_records
@@ -256,10 +248,8 @@ def test_main_skips_create_all_when_alembic_version_exists(
         validate=False, dry_run=False, seed=True, reset=False
     )
 
-    with patch("app.services.seed_service.inspect") as mock_inspect:
-        mock_inspect.return_value.has_table.return_value = True
-        with patch.object(seed_service.Base.metadata, "create_all") as mock_create_all:
-            seed_service.main()
+    with patch("sqlalchemy.schema.MetaData.create_all") as mock_create_all:
+        seed_service.main()
 
     mock_create_all.assert_not_called()
     mock_cmd_seed.assert_called_once_with(mock_records)

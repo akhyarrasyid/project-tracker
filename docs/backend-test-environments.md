@@ -5,7 +5,9 @@ Backend tests default to an isolated local PostgreSQL database. They do not use 
 ## Environment Variables
 
 - `DATABASE_URL`
-  - Main backend application database for local development.
+  - Main backend application database for runtime.
+  - Local development should point to local PostgreSQL.
+  - Production should point to the Supabase Transaction Pooler URL through `DATABASE_URL`, not `SUPABASE_DATABASE_URL`.
 - `TEST_DATABASE_URL`
   - Local PostgreSQL database used by `pytest`.
   - Default if unset: `postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test`
@@ -14,6 +16,7 @@ Backend tests default to an isolated local PostgreSQL database. They do not use 
   - Default if unset: same host/credentials as `TEST_DATABASE_URL`, database `postgres`.
 - `SUPABASE_DATABASE_URL`
   - Remote Supabase PostgreSQL connection used only for Alembic verification, smoke tests, and final pre-release validation.
+  - Do not use this as the runtime app database variable.
 - `ALLOW_REMOTE_TEST_DATABASE`
   - Must be set to `1` before backend tests are allowed to run against a remote PostgreSQL host.
 

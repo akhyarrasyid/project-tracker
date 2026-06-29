@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import app.db.session
-from app.db.session import _build_connect_args, get_db
+from app.db.session import _build_connect_args
 
 
 def test_get_db(monkeypatch):
@@ -9,7 +9,7 @@ def test_get_db(monkeypatch):
     mock_session_local = MagicMock(return_value=mock_session)
     monkeypatch.setattr(app.db.session, "SessionLocal", mock_session_local)
 
-    db_gen = get_db()
+    db_gen = app.db.session.get_db()
     db = next(db_gen)
     assert db == mock_session
 
