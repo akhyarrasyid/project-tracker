@@ -17,7 +17,6 @@ const PRIORITY_ORDER: Record<string, number> = {
 };
 
 const STATUS_ORDER: Record<string, number> = {
-  Blocked: 5,
   Review: 4,
   "In Progress": 3,
   Todo: 2,
@@ -127,8 +126,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
         return <span className="bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">In Progress</span>;
       case "Review":
         return <span className="bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">In Review</span>;
-      case "Blocked":
-        return <span className="bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">Blocked</span>;
       case "Done":
         return <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">Done</span>;
       default:
@@ -254,7 +251,7 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                       }}
                       className="font-bold text-blue-600 hover:underline hover:text-blue-700 focus:outline-none"
                     >
-                      WDD-{task.id}
+                      {task.key}
                     </button>
                   </td>
                   <td className={`py-3.5 px-6 text-slate-800 ${isSelected ? "font-bold text-blue-900" : ""}`}>

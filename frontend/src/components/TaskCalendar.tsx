@@ -166,9 +166,9 @@ export function TaskCalendar({ tasks, onTaskClick }: Props) {
                     className={`w-full text-left text-[10px] font-semibold border px-1.5 py-1 rounded cursor-pointer transition-colors truncate ${getPriorityColor(
                       t.priority
                     )}`}
-                    title={`[WDD-${t.id}] ${t.title}`}
+                    title={`[${t.key}] ${t.title}`}
                   >
-                    WDD-{t.id}: {t.title}
+                    {t.key}: {t.title}
                   </button>
                 ))}
               </div>

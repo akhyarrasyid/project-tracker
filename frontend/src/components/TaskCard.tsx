@@ -24,7 +24,7 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid opening detail modal
-    if (!confirm(`Hapus task "WDD-${task.id}: ${task.title}"?`)) return;
+    if (!confirm(`Hapus task "${task.key}: ${task.title}"?`)) return;
     setLoading(true);
     try {
       await onDelete(task.id);
@@ -53,7 +53,7 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1 py-0.5 rounded shrink-0">
-            WDD-{task.id}
+            {task.key}
           </span>
           <span
             className={`text-[9px] font-bold px-1 py-0.5 rounded border shrink-0 ${
@@ -62,7 +62,7 @@ export function TaskCard({ task, onDelete, onTaskClick }: Props) {
           >
             {task.priority}
           </span>
-          {task.status === "Blocked" && (
+          {task.is_blocked && (
             <span className="text-[9px] font-bold bg-red-50 text-red-650 px-1 py-0.5 rounded border border-red-100 uppercase tracking-wide shrink-0">
               Blocked
             </span>

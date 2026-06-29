@@ -3,7 +3,7 @@ import { metaApi } from "../api/meta";
 import type { TaskCreate, TaskPriority, TaskStatus, Quarter, RiskLevel, CustomerImpact } from "../types/task";
 import type { Department, Team, ProjectMeta, UserMeta } from "../types/meta";
 
-const STATUSES: TaskStatus[] = ["Todo", "In Progress", "Review", "Blocked", "Done"];
+const STATUSES: TaskStatus[] = ["Todo", "In Progress", "Review", "Done"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 const QUARTERS: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 const RISK_LEVELS: RiskLevel[] = ["Low", "Medium", "High"];

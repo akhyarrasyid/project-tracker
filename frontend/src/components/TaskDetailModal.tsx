@@ -10,7 +10,7 @@ interface Props {
   readonly onClose: () => void;
 }
 
-const STATUSES: TaskStatus[] = ["Todo", "In Progress", "Review", "Blocked", "Done"];
+const STATUSES: TaskStatus[] = ["Todo", "In Progress", "Review", "Done"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 const QUARTERS: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 const RISK_LEVELS: RiskLevel[] = ["Low", "Medium", "High"];
@@ -96,7 +96,7 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Hapus task "WDD-${task.id}: ${task.title}"?`)) return;
+    if (!confirm(`Hapus task "${task.key}: ${task.title}"?`)) return;
     setSaving(true);
     try {
       await onDelete(task.id);
@@ -115,7 +115,7 @@ export function TaskDetailModal({ task, onUpdate, onDelete, onClose }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded">
-              WDD-{task.id}
+              {task.key}
             </span>
             <span className="text-slate-400 text-xs">
               Dibuat pada {new Date(task.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}

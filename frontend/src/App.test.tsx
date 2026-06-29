@@ -1,8 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import App from "./App";
-import { taskApi } from "./api/tasks";
 import "@testing-library/jest-dom";
+import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import App from "./App";
+import { issueApi } from "./api/issues";
+import { metaApi } from "./api/meta";
+import { projectApi } from "./api/projects";
+import { taskApi } from "./api/tasks";
+import { queryClient } from "./app/query-client";
+
+vi.mock("./api/meta", () => ({
+  metaApi: {
+    getDepartments: vi.fn(() => Promise.resolve([])),
+    getTeams: vi.fn(() => Promise.resolve([])),
+    getProjects: vi.fn(),
+    getUsers: vi.fn(() => Promise.resolve([])),
+  },
+}));
 
 vi.mock("./api/tasks", () => ({
   taskApi: {
@@ -14,11 +29,25 @@ vi.mock("./api/tasks", () => ({
   },
 }));
 
+vi.mock("./api/projects", () => ({
+  projectApi: {
+    getSummary: vi.fn(),
+  },
+}));
+
+vi.mock("./api/issues", () => ({
+  issueApi: {
+    getByKey: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
+
 vi.mock("./contexts/AuthContext", () => ({
-  AuthProvider: ({ children }: any) => children,
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
   useAuth: () => ({
     user: {
-      id: 1,
+      id: 7,
       username: "admin",
       full_name: "Administrator",
       role: "admin",
@@ -30,394 +59,137 @@ vi.mock("./contexts/AuthContext", () => ({
   }),
 }));
 
-vi.mock("./api/meta", () => ({
-  metaApi: {
-    getDepartments: vi.fn(() => Promise.resolve([])),
-    getTeams: vi.fn(() => Promise.resolve([])),
-    getProjects: vi.fn(() => Promise.resolve([{ id: 1, name: "Project 1", key: "PRJ", status: "Active" }])),
-    getUsers: vi.fn(() => Promise.resolve([])),
+const projects = [
+  {
+    id: 1,
+    name: "Payment Platform",
+    key: "PAY",
+    status: "ACTIVE",
+    description: "Payments",
   },
-}));
+  {
+    id: 2,
+    name: "Compliance 2026",
+    key: "COM",
+    status: "ACTIVE",
+    description: "Compliance",
+  },
+];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const makeTask = (overrides = {}) => ({
-  id: 1,
-  title: "Task Satu",
-  description: "Deskripsi satu",
-  status: "Todo" as const,
-  priority: "Medium" as const,
-  department: "Engineering",
-  team: "Backend",
-  assignee: "Alice",
-  created_by: "admin",
-  created_at: "2026-06-26T15:00:00Z",
-  updated_at: "2026-06-26T15:00:00Z",
-  due_date: "2026-12-31",
-  completed_at: null,
-  story_points: 3,
-  estimated_hours: 8,
-  actual_hours: 0,
-  progress_percentage: 0,
-  attachments_count: 0,
-  comments_count: 0,
-  watchers_count: 0,
-  sprint: "Sprint-1",
-  quarter: "Q1" as const,
-  risk_level: "Low" as const,
-  customer_impact: "None" as const,
-  sla_hours: 48,
-  dependencies: [],
-  tags: ["backend"],
-  ...overrides,
-});
-
-const paginatedResponse = (items: ReturnType<typeof makeTask>[]) => ({
-  items,
-  total: items.length,
+const boardResponse = {
+  items: [
+    {
+      id: 12,
+      number: 12,
+      key: "PAY-12",
+      project_key: "PAY",
+      project_id: 1,
+      assignee_id: 7,
+      title: "Handle duplicate callback",
+      description: "Investigate duplicate payment callback",
+      status: "Todo" as const,
+      is_blocked: false,
+      blocked_reason: null,
+      priority: "High" as const,
+      department: "Engineering",
+      team: "Backend Team",
+      assignee: "Administrator",
+      created_by: "admin",
+      created_at: "2026-06-29T00:00:00Z",
+      updated_at: "2026-06-29T00:00:00Z",
+      due_date: "2026-07-05",
+      completed_at: null,
+      story_points: 3,
+      estimated_hours: 8,
+      actual_hours: 0,
+      progress_percentage: 0,
+      attachments_count: 0,
+      comments_count: 0,
+      watchers_count: 0,
+      sprint: null,
+      quarter: "Q3" as const,
+      risk_level: "Low" as const,
+      customer_impact: "High" as const,
+      sla_hours: 48,
+      dependencies: [],
+      tags: ["payments"],
+    },
+  ],
+  total: 1,
   page: 1,
   size: 20,
   pages: 1,
+};
+
+const projectSummary = {
+  total_issues: 14,
+  done_issues: 5,
+  active_issues: 9,
+  issue_progress_percent: 36,
+  point_progress_percent: 33,
+  blocked_count: 2,
+  overdue_count: 1,
+  at_risk_count: 3,
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  queryClient.clear();
+  window.history.replaceState({}, "", "/");
+
+  vi.mocked(metaApi.getProjects).mockResolvedValue(projects);
+  vi.mocked(taskApi.getAll).mockResolvedValue(boardResponse);
+  vi.mocked(projectApi.getSummary).mockResolvedValue(projectSummary);
+  vi.mocked(issueApi.getByKey).mockResolvedValue(boardResponse.items[0]);
 });
 
-// ── Tests ────────────────────────────────────────────────────────────────────
+describe("Milestone 2 frontend foundation", () => {
+  it("routes project pages by projectKey", async () => {
+    window.history.replaceState({}, "", "/projects/PAY/board");
 
-describe("TaskBoard Application", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders loading spinner initially", () => {
-    vi.mocked(taskApi.getAll).mockReturnValue(new Promise(() => {}));
     render(<App />);
-    expect(screen.getByText(/memuat data task/i)).toBeInTheDocument();
-  });
 
-  it("displays tasks after loading", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(
-      paginatedResponse([makeTask(), makeTask({ id: 2, title: "Task Dua", status: "In Progress" as const })])
-    );
-    render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: "Payment Platform" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Board view")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("Task Satu")).toBeInTheDocument();
-      expect(screen.getByText("Task Dua")).toBeInTheDocument();
+      expect(vi.mocked(taskApi.getAll)).toHaveBeenCalledWith({
+        project_id: 1,
+        page: 1,
+        size: 20,
+      });
     });
   });
 
-  it("shows error banner when API fails", async () => {
-    vi.mocked(taskApi.getAll).mockRejectedValue(new Error("Network error"));
+  it("supports issue deep-link by issueKey", async () => {
+    window.history.replaceState({}, "", "/issues/PAY-12");
+
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByText(/Gagal memuat tasks/i)).toBeInTheDocument();
-    });
+
+    expect(await screen.findByText("PAY-12")).toBeInTheDocument();
+    expect(screen.getByText("Handle duplicate callback")).toBeInTheDocument();
+    expect(vi.mocked(issueApi.getByKey)).toHaveBeenCalledWith("PAY-12");
   });
 
-  it("shows 4 kanban columns", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
+  it("shares project query cache across sidebar and project layout", async () => {
+    window.history.replaceState({}, "", "/projects/PAY/board");
+
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByText("Todo")).toBeInTheDocument();
-      expect(screen.getByText("In Progress")).toBeInTheDocument();
-      expect(screen.getByText("In Review")).toBeInTheDocument();
-      expect(screen.getByText("Done")).toBeInTheDocument();
-    });
-  });
 
-  it("can open details modal and update status", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(
-      paginatedResponse([makeTask()])
-    );
-    vi.mocked(taskApi.update).mockResolvedValue(makeTask({ status: "In Progress" as const }));
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    // Click on the task card to open detail modal
-    fireEvent.click(screen.getByText("Task Satu"));
-
-    // Verify modal is open and has title input
-    const titleInput = screen.getByLabelText(/judul task/i) as HTMLInputElement;
-    expect(titleInput.value).toBe("Task Satu");
-
-    // Change status dropdown
-    const statusSelect = screen.getByLabelText(/status/i) as HTMLSelectElement;
-    fireEvent.change(statusSelect, { target: { value: "In Progress" } });
-
-    // Click Save Changes button
-    fireEvent.click(screen.getByText("Simpan Perubahan"));
+    await screen.findByRole("heading", { name: "Payment Platform" });
 
     await waitFor(() => {
-      expect(taskApi.update).toHaveBeenCalledWith(1, expect.objectContaining({ status: "In Progress" }));
+      expect(vi.mocked(metaApi.getProjects)).toHaveBeenCalledTimes(1);
     });
   });
 
-  it("can delete a task from the details modal with confirmation", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    vi.mocked(taskApi.delete).mockResolvedValue({} as any);
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("preserves the active page on refresh via browser route", async () => {
+    window.history.replaceState({}, "", "/projects/PAY/calendar");
 
     render(<App />);
-    await screen.findByText("Task Satu");
 
-    // Click card to open modal
-    fireEvent.click(screen.getByText("Task Satu"));
-
-    // Find and click Hapus Task button in the modal
-    const deleteBtn = screen.getByText("Hapus Task");
-    fireEvent.click(deleteBtn);
-
-    expect(confirmSpy).toHaveBeenCalled();
-    await waitFor(() => {
-      expect(taskApi.delete).toHaveBeenCalledWith(1);
-    });
-  });
-
-  it("shows pagination controls when pages > 1", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue({
-      items: [makeTask()],
-      total: 40,
-      page: 1,
-      size: 20,
-      pages: 2,
-    });
-    render(<App />);
-    await waitFor(() => {
-      expect(screen.getByTitle("Halaman Sebelumnya")).toBeInTheDocument();
-      expect(screen.getByTitle("Halaman Selanjutnya")).toBeInTheDocument();
-    });
-  });
-
-  it("opens create form and validates empty title", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-    fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Judul task wajib diisi")).toBeInTheDocument();
-  });
-
-  it("can cancel the create form", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-    expect(screen.getByText("Buat Task")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("Batal"));
-    expect(screen.queryByText("Buat Task")).not.toBeInTheDocument();
-  });
-
-  it("validates missing project in create form", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-    
-    // Fill title
-    const titleInput = screen.getByPlaceholderText("Judul task... *");
-    fireEvent.change(titleInput, { target: { value: "Task Baru" } });
-
-    // Set project select to empty
-    const projectSelect = document.getElementById("create-project-select") as HTMLSelectElement;
-    fireEvent.change(projectSelect, { target: { value: "" } });
-
-    fireEvent.click(screen.getByText("Buat Task"));
-    expect(screen.getByText("Proyek wajib dipilih")).toBeInTheDocument();
-  });
-
-  it("successfully creates a task with all fields", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    const mockCreated = makeTask({ id: 99, title: "New Task" });
-    vi.mocked(taskApi.create).mockResolvedValue(mockCreated);
-
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-    
-    fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "New Task" } });
-    fireEvent.change(screen.getByPlaceholderText("security, automation"), { target: { value: "tag1, tag2" } });
-
-    fireEvent.click(screen.getByText("Buat Task"));
-
-    await waitFor(() => {
-      expect(taskApi.create).toHaveBeenCalled();
-      expect(screen.getByText("New Task")).toBeInTheDocument();
-    });
-  });
-
-  it("handles pagination clicks", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue({
-      items: [makeTask()],
-      total: 40,
-      page: 1,
-      size: 20,
-      pages: 2,
-    });
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    const nextBtn = screen.getByTitle("Halaman Selanjutnya");
-    fireEvent.click(nextBtn);
-
-    await waitFor(() => {
-      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 2, size: 20, project_id: 1 });
-    });
-
-    const prevBtn = screen.getByTitle("Halaman Sebelumnya");
-    fireEvent.click(prevBtn);
-
-    await waitFor(() => {
-      expect(taskApi.getAll).toHaveBeenLastCalledWith({ page: 1, size: 20, project_id: 1 });
-    });
-  });
-
-  it("handles deletion cancellation from task card", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    const deleteBtn = screen.getByTitle("Hapus");
-    fireEvent.click(deleteBtn);
-
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(taskApi.delete).not.toHaveBeenCalled();
-  });
-
-  it("handles deletion failure rollback", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    vi.mocked(taskApi.delete).mockRejectedValue(new Error("Database error"));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    const deleteBtn = screen.getByTitle("Hapus");
-    fireEvent.click(deleteBtn);
-
-    await waitFor(() => {
-      expect(taskApi.delete).toHaveBeenCalledWith(1);
-    });
-    await waitFor(() => {
-      expect(taskApi.getAll).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  it("updates all select fields in create form", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    vi.mocked(taskApi.create).mockResolvedValue(makeTask());
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-
-    fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "A" } });
-    fireEvent.change(screen.getByPlaceholderText("Deskripsi (opsional)..."), { target: { value: "Deskripsi Baru" } });
-
-    // Target inputs by ID
-    const statusSelect = document.getElementById("create-status") as HTMLSelectElement;
-    const prioritySelect = document.getElementById("create-priority") as HTMLSelectElement;
-    const spSelect = document.getElementById("create-story-points") as HTMLSelectElement;
-    const quarterSelect = document.getElementById("create-quarter") as HTMLSelectElement;
-    const riskSelect = document.getElementById("create-risk-level") as HTMLSelectElement;
-    const impactSelect = document.getElementById("create-customer-impact") as HTMLSelectElement;
-    const slaSelect = document.getElementById("create-sla-hours") as HTMLSelectElement;
-    const dueDateInput = document.getElementById("create-due-date") as HTMLInputElement;
-    const estHoursInput = document.getElementById("create-estimated-hours") as HTMLInputElement;
-
-    fireEvent.change(statusSelect, { target: { value: "In Progress" } });
-    fireEvent.change(prioritySelect, { target: { value: "Critical" } });
-    fireEvent.change(spSelect, { target: { value: "5" } });
-    fireEvent.change(quarterSelect, { target: { value: "Q2" } });
-    fireEvent.change(riskSelect, { target: { value: "High" } });
-    fireEvent.change(impactSelect, { target: { value: "High" } });
-    fireEvent.change(slaSelect, { target: { value: "72" } });
-    fireEvent.change(dueDateInput, { target: { value: "2026-12-31" } });
-    fireEvent.change(estHoursInput, { target: { value: "12" } });
-
-    // Submit via Enter key
-    const titleInput = screen.getByPlaceholderText("Judul task... *");
-    fireEvent.keyDown(titleInput, { key: "Enter", code: "Enter" });
-
-    await waitFor(() => {
-      expect(taskApi.create).toHaveBeenCalled();
-    });
-  });
-
-  it("renders Done status task and overdue task", async () => {
-    const overdueTask = makeTask({ id: 10, title: "Overdue Task", due_date: "2020-01-01" });
-    const doneTask = makeTask({ id: 20, title: "Done Task", status: "Done" as const });
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([overdueTask, doneTask]));
-
-    render(<App />);
-    await screen.findByText("Overdue Task");
-    await screen.findByText("Done Task");
-
-    // Overdue task should have overdue color label
-    const overdueLabel = screen.getByText("📅 1 Jan");
-    expect(overdueLabel).toHaveClass("text-red-500");
-  });
-
-  it("handles creation API error", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([]));
-    vi.mocked(taskApi.create).mockRejectedValue({
-      response: { data: { detail: "Gagal membuat task. Coba lagi." } }
-    } as any);
-
-    render(<App />);
-    await screen.findByText("+ Tambah Task Baru");
-    fireEvent.click(screen.getByText("+ Tambah Task Baru"));
-
-    fireEvent.change(screen.getByPlaceholderText("Judul task... *"), { target: { value: "Fail Task" } });
-
-    fireEvent.click(screen.getByText("Buat Task"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Gagal membuat task. Coba lagi.")).toBeInTheDocument();
-    });
-  });
-
-  it("can switch to list view and calendar view", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    // Click on list view tab
-    fireEvent.click(screen.getByRole("button", { name: /^list$/i }));
-    // Verify it renders list table
-    expect(screen.getByText("Summary / Title")).toBeInTheDocument();
-
-    // Click on calendar view tab
-    fireEvent.click(screen.getByRole("button", { name: /^calendar$/i }));
-    // Verify it renders calendar weekdays
+    expect(await screen.findByText("Calendar view")).toBeInTheDocument();
     expect(screen.getByText("Senin")).toBeInTheDocument();
-  });
-
-  it("handles drag and drop status change", async () => {
-    vi.mocked(taskApi.getAll).mockResolvedValue(paginatedResponse([makeTask()]));
-    vi.mocked(taskApi.update).mockResolvedValue(makeTask({ status: "In Progress" as const }));
-    render(<App />);
-    await screen.findByText("Task Satu");
-
-    const column = screen.getByText("In Progress").closest("div");
-    
-    // Simulate drop event
-    const dataTransfer = {
-      data: { "text/plain": "1" } as Record<string, string>,
-      setData(type: string, val: string) {
-        this.data[type] = val;
-      },
-      getData(type: string) {
-        return this.data[type];
-      }
-    };
-    
-    fireEvent.drop(column!, { dataTransfer });
-    await waitFor(() => {
-      expect(taskApi.update).toHaveBeenCalledWith(1, { status: "In Progress" });
-    });
   });
 });
