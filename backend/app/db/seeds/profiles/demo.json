@@ -1,0 +1,86 @@
+{
+  "name": "demo",
+  "description": "Balanced demo workspace with enough density for screenshots and browser walkthroughs.",
+  "random_seed": 20260631,
+  "anchor_date": "2026-06-30",
+  "project_keys": [
+    "PAY",
+    "IAM",
+    "DVP",
+    "MOB",
+    "PRV",
+    "REG",
+    "CLM",
+    "SUP",
+    "SLA",
+    "FPA",
+    "PRC",
+    "TAL",
+    "WFA",
+    "C360",
+    "AUD"
+  ],
+  "scenario_files": [
+    "payment_callback_incident",
+    "authentication_hardening",
+    "privacy_compliance_review",
+    "support_sla_recovery",
+    "finance_month_end",
+    "talent_hiring_program"
+  ],
+  "targets": {
+    "users": 60,
+    "issues": 350,
+    "sprints": 45,
+    "epics": 45,
+    "labels": 48,
+    "comments": 800,
+    "activity_logs": 1800,
+    "watchers": 700,
+    "inactive_watchers": 90,
+    "notifications": 900,
+    "attachments": 100,
+    "parent_links": 54,
+    "dependencies": 120
+  },
+  "generation": {
+    "min_team_size": 4,
+    "max_team_size": 7,
+    "team_size_spread": 2,
+    "members_per_project": 6,
+    "cross_functional_members_per_team": 2,
+    "viewers_per_project": 1,
+    "sprints_per_project": 3,
+    "epics_per_project": 3,
+    "max_labels_per_issue": 4,
+    "blocked_ratio": 0.12,
+    "mention_ratio": 0.18,
+    "read_notification_ratio": 0.58,
+    "max_watchers_per_issue": 5,
+    "max_children_per_project": 4,
+    "status_weights": {
+      "Todo": 30,
+      "In Progress": 31,
+      "Review": 17,
+      "Done": 22
+    },
+    "priority_weights": {
+      "Low": 12,
+      "Medium": 38,
+      "High": 35,
+      "Critical": 15
+    },
+    "risk_weights": {
+      "Low": 28,
+      "Medium": 47,
+      "High": 25
+    },
+    "customer_impact_weights": {
+      "None": 6,
+      "Low": 18,
+      "Medium": 35,
+      "High": 28,
+      "Internal": 13
+    }
+  }
+}

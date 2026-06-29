@@ -1,14 +1,23 @@
-"""Unit tests for the seed service."""
-
 import argparse
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from app.db.models.activity_log import ActivityLog
+from app.db.models.attachment import Attachment
+from app.db.models.comment import Comment
+from app.db.models.department import Department
+from app.db.models.epic import Epic
+from app.db.models.notification import Notification
+from app.db.models.project import Project
+from app.db.models.project_member import ProjectMember
 from app.db.models.sprint import Sprint
 from app.db.models.task import Task
+from app.db.models.team import Team
+from app.db.models.user import User
+from app.db.models.watcher import Watcher
 from app.services import seed_service
-from tests.conftest import VALID_TASK_PAYLOAD
 
 
 @pytest.fixture(autouse=True)
@@ -25,231 +34,146 @@ def mock_session_local(monkeypatch, db_session):
     monkeypatch.setattr("app.services.seed_service.SessionLocal", MockSessionLocal)
 
 
-@pytest.fixture
-def mock_records():
-    return [
-        {**VALID_TASK_PAYLOAD, "id": 1, "title": "Task 1"},
-        {**VALID_TASK_PAYLOAD, "id": 2, "title": "Task 2"},
-    ]
+def test_load_seed_data_smoke_bundle_contains_catalogs_and_scenarios():
+    bundle = seed_service._load_seed_data("smoke")
+
+    assert bundle["profile"]["name"] == "smoke"
+    assert bundle["anchor_date"].isoformat() == "2026-06-30"
+    assert bundle["random_seed"] == 20260630
+    assert len(bundle["scenarios"]) == 4
+    assert "organization" in bundle["catalogs"]
+    assert "projects" in bundle["catalogs"]
 
 
-@pytest.fixture
-def mock_invalid_records():
-    return [
-        {**VALID_TASK_PAYLOAD, "id": 1, "title": "Task 1"},
-        {
-            **VALID_TASK_PAYLOAD,
-            "id": 2,
-            "title": "",
-            "story_points": 4,
-        },  # empty title & invalid SP
-    ]
+def test_build_profile_dataset_is_deterministic_for_smoke():
+    first = seed_service._build_profile_dataset("smoke")
+    second = seed_service._build_profile_dataset("smoke")
+
+    assert first["summary"] == second["summary"]
+    assert first["tasks"][0]["title"] == second["tasks"][0]["title"]
+    assert first["comments"][0]["content"] == second["comments"][0]["content"]
 
 
-def test_validate_records_success(mock_records):
-    valid, errors = seed_service._validate_records(mock_records)
-    assert len(valid) == 2
-    assert len(errors) == 0
-    assert valid[0]["title"] == "Task 1"
-    assert valid[1]["title"] == "Task 2"
+def test_build_profile_dataset_meets_smoke_targets():
+    data = seed_service._build_profile_dataset("smoke")
+    summary = data["summary"]
+
+    assert summary["projects"] == 4
+    assert summary["issues"] >= 40
+    assert summary["comments"] >= 60
+    assert summary["watchers"] >= 50
+    assert summary["notifications"] >= 50
+    assert summary["activity_logs"] >= 120
+    assert summary["attachments"] >= 18
+    assert summary["blocked_issues"] >= 1
+    assert summary["sub_issue_links"] >= 1
+    assert summary["dependency_links"] >= 10
 
 
-def test_validate_records_with_errors(mock_invalid_records):
-    valid, errors = seed_service._validate_records(mock_invalid_records)
-    assert len(valid) == 1
-    assert len(errors) == 1
-    assert errors[0]["index"] == 1
-    assert errors[0]["id"] == 2
-    assert len(errors[0]["errors"]) > 0
+def test_cmd_seed_creates_cross_functional_entities(db_session):
+    seed_service.cmd_seed("smoke")
+
+    assert db_session.query(Department).count() >= 4
+    assert db_session.query(Team).count() >= 7
+    assert db_session.query(User).count() >= 15
+    assert db_session.query(Project).count() == 4
+    assert db_session.query(ProjectMember).count() >= 16
+    assert db_session.query(Sprint).count() >= 8
+    assert db_session.query(Epic).count() >= 8
+    assert db_session.query(Task).count() >= 40
+    assert db_session.query(Comment).count() >= 60
+    assert db_session.query(Attachment).count() >= 18
+    assert db_session.query(Watcher).count() >= 50
+    assert db_session.query(Notification).count() >= 50
+    assert db_session.query(ActivityLog).count() >= 120
+
+    pay_86 = (
+        db_session.query(Task)
+        .join(Project, Task.project_id == Project.id)
+        .filter(Project.key == "PAY", Task.number == 86)
+        .first()
+    )
+    assert pay_86 is not None
+    assert pay_86.comments_count >= 1
+    assert pay_86.watchers_count >= 2
 
 
-def test_cmd_validate_success(mock_records):
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_validate(mock_records)
-    assert excinfo.value.code == 0
+def test_cmd_seed_is_idempotent(db_session):
+    seed_service.cmd_seed("smoke")
+    counts_before = {
+        "projects": db_session.query(Project).count(),
+        "tasks": db_session.query(Task).count(),
+        "comments": db_session.query(Comment).count(),
+        "watchers": db_session.query(Watcher).count(),
+        "notifications": db_session.query(Notification).count(),
+        "activity_logs": db_session.query(ActivityLog).count(),
+    }
+
+    seed_service.cmd_seed("smoke")
+
+    counts_after = {
+        "projects": db_session.query(Project).count(),
+        "tasks": db_session.query(Task).count(),
+        "comments": db_session.query(Comment).count(),
+        "watchers": db_session.query(Watcher).count(),
+        "notifications": db_session.query(Notification).count(),
+        "activity_logs": db_session.query(ActivityLog).count(),
+    }
+    assert counts_after == counts_before
 
 
-def test_cmd_validate_failure(mock_invalid_records):
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_validate(mock_invalid_records)
-    assert excinfo.value.code == 1
+def test_cmd_reset_profile_removes_seeded_projects(db_session):
+    seed_service.cmd_seed("smoke")
+    assert db_session.query(Project).filter(Project.key.in_(["PAY", "IAM", "PRV", "SUP"])).count() == 4
 
+    seed_service.cmd_reset_profile("smoke")
 
-def test_cmd_dry_run(mock_invalid_records):
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_dry_run(mock_invalid_records)
-    assert excinfo.value.code == 0
-
-
-def test_cmd_seed_success(mock_records, db_session):
-    # Verify no tasks originally
+    assert db_session.query(Project).filter(Project.key.in_(["PAY", "IAM", "PRV", "SUP"])).count() == 0
     assert db_session.query(Task).count() == 0
-
-    # Seed
-    seed_service.cmd_seed(mock_records)
-
-    # Verify tasks are inserted
-    assert db_session.query(Task).count() == 2
-    t1 = db_session.query(Task).filter(Task.id == 1).first()
-    assert t1.title == "Task 1"
+    assert db_session.query(Comment).count() == 0
+    assert db_session.query(Watcher).count() == 0
 
 
-def test_cmd_seed_no_valid_records(mock_invalid_records):
-    invalid_only = [mock_invalid_records[1]]
+def test_remote_seed_guard_blocks_without_opt_in(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@db.example.com:5432/app")
+    monkeypatch.delenv("ALLOW_REMOTE_SEED", raising=False)
+    monkeypatch.delenv("SEED_CONFIRM_PROFILE", raising=False)
+
     with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_seed(invalid_only)
+        seed_service._ensure_seed_allowed("enterprise_demo")
+
     assert excinfo.value.code == 1
 
 
-def test_cmd_seed_idempotency(mock_records, db_session):
-    # Seed once
-    seed_service.cmd_seed(mock_records)
-    assert db_session.query(Task).count() == 2
-
-    # Seed again (should skip existing)
-    seed_service.cmd_seed(mock_records)
-    assert db_session.query(Task).count() == 2
-
-
-def test_cmd_seed_creates_project_scoped_sprint(db_session):
-    records = [
-        {
-            **VALID_TASK_PAYLOAD,
-            "id": 91,
-            "number": 91,
-            "project": "Payment Platform",
-            "project_key": "PAY",
-            "department": "Engineering",
-            "team": "Platform Payments",
-            "title": "Handle duplicate payment callback",
-            "assignee": "Fajar Nugroho",
-            "created_by": "Amanda Putri",
-            "sprint": "Sprint 4",
-        }
-    ]
-
-    seed_service.cmd_seed(records)
-
-    task = db_session.query(Task).filter(Task.id == 91).first()
-    assert task is not None
-    assert task.sprint_id is not None
-    assert task.project_id is not None
-    sprint = db_session.query(Sprint).filter(Sprint.id == task.sprint_id).first()
-    assert sprint is not None
-    assert sprint.project_id == task.project_id
-
-
-def test_cmd_seed_db_error(mock_records, monkeypatch):
-    def mock_commit(*args, **kwargs):
-        raise Exception("DB Error")
-
-    # Patch commit to raise an exception
-    monkeypatch.setattr("sqlalchemy.orm.Session.commit", mock_commit)
-
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_seed(mock_records)
-    assert excinfo.value.code == 1
-
-
-def test_cmd_reset_success(mock_records, db_session):
-    # Seed initially
-    seed_service.cmd_seed(mock_records)
-    assert db_session.query(Task).count() == 2
-
-    # Reset with same records
-    seed_service.cmd_reset(mock_records)
-    assert db_session.query(Task).count() == 2
-
-
-def test_cmd_reset_db_error(mock_records, monkeypatch):
-    def mock_delete(*args, **kwargs):
-        raise Exception("Delete Error")
-
-    # Patch delete query to raise exception
-    monkeypatch.setattr("sqlalchemy.orm.query.Query.delete", mock_delete)
-
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_reset(mock_records)
-    assert excinfo.value.code == 1
-
-
-def test_load_seed_data_missing_file(monkeypatch):
-    monkeypatch.setattr(
-        "app.services.seed_service.SEED_FILE",
-        seed_service.Path("nonexistent_file.json"),
-    )
-    with pytest.raises(SystemExit) as excinfo:
-        seed_service._load_seed_data()
-    assert excinfo.value.code == 1
-
-
-def test_load_seed_data_success():
-    data = seed_service._load_seed_data()
-    assert isinstance(data, list)
-    assert len(data) >= 12
-
-
-@patch("argparse.ArgumentParser.parse_args")
-@patch("app.services.seed_service._load_seed_data")
-@patch("app.services.seed_service.cmd_validate")
-def test_main_validate(mock_cmd_validate, mock_load, mock_parse, mock_records):
-    mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(
-        validate=True, dry_run=False, seed=False, reset=False
-    )
-    seed_service.main()
-    mock_cmd_validate.assert_called_once_with(mock_records)
-
-
-@patch("argparse.ArgumentParser.parse_args")
-@patch("app.services.seed_service._load_seed_data")
-@patch("app.services.seed_service.cmd_dry_run")
-def test_main_dry_run(mock_cmd_dry_run, mock_load, mock_parse, mock_records):
-    mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(
-        validate=False, dry_run=True, seed=False, reset=False
-    )
-    seed_service.main()
-    mock_cmd_dry_run.assert_called_once_with(mock_records)
-
-
-@patch("argparse.ArgumentParser.parse_args")
-@patch("app.services.seed_service._load_seed_data")
-@patch("app.services.seed_service.cmd_seed")
-def test_main_seed(mock_cmd_seed, mock_load, mock_parse, mock_records):
-    mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(
-        validate=False, dry_run=False, seed=True, reset=False
-    )
-    seed_service.main()
-    mock_cmd_seed.assert_called_once_with(mock_records)
-
-
-@patch("argparse.ArgumentParser.parse_args")
-@patch("app.services.seed_service._load_seed_data")
-@patch("app.services.seed_service.cmd_reset")
-def test_main_reset(mock_cmd_reset, mock_load, mock_parse, mock_records):
-    mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(
-        validate=False, dry_run=False, seed=False, reset=True
-    )
-    seed_service.main()
-    mock_cmd_reset.assert_called_once_with(mock_records)
-
-
-@patch("argparse.ArgumentParser.parse_args")
-@patch("app.services.seed_service._load_seed_data")
-@patch("app.services.seed_service.cmd_seed")
-def test_main_never_calls_create_all(
-    mock_cmd_seed, mock_load, mock_parse, mock_records
-):
-    mock_load.return_value = mock_records
-    mock_parse.return_value = argparse.Namespace(
-        validate=False, dry_run=False, seed=True, reset=False
-    )
-
-    with patch("sqlalchemy.schema.MetaData.create_all") as mock_create_all:
+def test_main_validate_dispatches_with_profile_argument():
+    with patch("argparse.ArgumentParser.parse_args") as mock_parse, patch(
+        "app.services.seed_service.cmd_validate"
+    ) as mock_cmd_validate:
+        mock_parse.return_value = argparse.Namespace(
+            seed=False,
+            reset_profile=False,
+            dry_run=False,
+            validate=True,
+            profile="smoke",
+            anchor_date="2026-06-30",
+            random_seed=None,
+            report=None,
+        )
         seed_service.main()
 
-    mock_create_all.assert_not_called()
-    mock_cmd_seed.assert_called_once_with(mock_records)
+    mock_cmd_validate.assert_called_once()
+    assert mock_cmd_validate.call_args.args[0] == "smoke"
+
+
+def test_cmd_dry_run_writes_summary_report():
+    report_path = Path("backend/.runtime/seed-service-test-report.json")
+    if report_path.exists():
+        report_path.unlink()
+
+    with pytest.raises(SystemExit) as excinfo:
+        seed_service.cmd_dry_run("smoke", report_path=str(report_path))
+
+    assert excinfo.value.code == 0
+    assert report_path.exists()
+    assert "smoke" in report_path.read_text(encoding="utf-8")
+    report_path.unlink()

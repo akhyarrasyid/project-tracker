@@ -1,0 +1,132 @@
+{
+  "anchor_staff": {
+    "Payments Platform": [
+      { "full_name": "Amanda Putri" },
+      { "full_name": "Fajar Nugroho" },
+      { "full_name": "Dinda Maharani" },
+      { "full_name": "Rizky Aditya" },
+      { "full_name": "Rina Kurniawati" }
+    ],
+    "Identity Platform": [
+      { "full_name": "Bima Santoso" },
+      { "full_name": "Maya Sari" },
+      { "full_name": "Aditya Prabowo" },
+      { "full_name": "Sari Dewi" }
+    ],
+    "Developer Experience": [
+      { "full_name": "Raka Permana" },
+      { "full_name": "Nina Karlina" },
+      { "full_name": "Bagas Wicaksono" }
+    ],
+    "Mobile Platform": [
+      { "full_name": "Tara Puspita" },
+      { "full_name": "Mochammad Ilham" },
+      { "full_name": "Faris Maulana" }
+    ],
+    "Security Operations": [
+      { "full_name": "Gita Ramadhani" },
+      { "full_name": "Yoga Hardiansyah" },
+      { "full_name": "Felicia Hartono" }
+    ],
+    "Vulnerability Management": [
+      { "full_name": "Dimas Prakoso" },
+      { "full_name": "Mira Kusuma" },
+      { "full_name": "Arman Hadi" }
+    ],
+    "Trust Platform": [
+      { "full_name": "Kevin Surya" },
+      { "full_name": "Tiara Laksmi" }
+    ],
+    "Compliance Programs": [
+      { "full_name": "Sarah Wijaya" },
+      { "full_name": "Nadia Pratama" },
+      { "full_name": "Dewi Anggraini" }
+    ],
+    "Contracts Review": [
+      { "full_name": "Ayu Cahyani" },
+      { "full_name": "Michael Gunawan" }
+    ],
+    "Financial Planning": [
+      { "full_name": "Rio Fernando" },
+      { "full_name": "Clara Halim" },
+      { "full_name": "Indra Saputra" }
+    ],
+    "Procurement Operations": [
+      { "full_name": "Hana Putrani" },
+      { "full_name": "Galih Mahendra" }
+    ],
+    "Revenue Systems": [
+      { "full_name": "Putri Kinasih" },
+      { "full_name": "Aldo Kristanto" }
+    ],
+    "Support Enablement": [
+      { "full_name": "Dina Lestari" },
+      { "full_name": "Farhan Hidayat" },
+      { "full_name": "Naufal Hamzah" }
+    ],
+    "Service Reliability": [
+      { "full_name": "Rahmat Wijanarko" },
+      { "full_name": "Riska Permata" }
+    ],
+    "Business Operations": [
+      { "full_name": "Nadia Kurnia" },
+      { "full_name": "Wahyu Prasetyo" }
+    ],
+    "Customer Success Systems": [
+      { "full_name": "Olivia Marcella" },
+      { "full_name": "Nabil Fahreza" }
+    ],
+    "Support Operations": [
+      { "full_name": "Cindy Oktavia" },
+      { "full_name": "Reza Triyana" }
+    ],
+    "Data Platform": [
+      { "full_name": "Yusuf Hidayat" },
+      { "full_name": "Marsha Valent" }
+    ],
+    "Analytics Engineering": [
+      { "full_name": "Arini Savitri" },
+      { "full_name": "Bintang Pramana" }
+    ],
+    "Talent Operations": [
+      { "full_name": "Lia Wulandari" },
+      { "full_name": "Siska Nirmala" }
+    ],
+    "Workforce Planning": [
+      { "full_name": "Reno Gunadi" },
+      { "full_name": "Maya Fitriani" }
+    ],
+    "Growth Systems": [
+      { "full_name": "Aditiya Saputra" },
+      { "full_name": "Shania Putri" }
+    ],
+    "Billing Operations": [
+      { "full_name": "Dion Ramdani" },
+      { "full_name": "Kezia Natalia" }
+    ],
+    "Internal Tools": [
+      { "full_name": "Irfan Setiawan" },
+      { "full_name": "Tio Kurniawan" }
+    ],
+    "Workplace Automation": [
+      { "full_name": "Monica Nathalia" },
+      { "full_name": "Asep Darmawan" }
+    ],
+    "Project Operations": [
+      { "full_name": "Administrator", "role": "admin" },
+      { "full_name": "Audit Viewer" }
+    ]
+  },
+  "generated_name_pool": {
+    "first_names": [
+      "Abel", "Anya", "Bela", "Cahya", "Dea", "Eko", "Fina", "Gilang", "Hesti", "Intan",
+      "Jovan", "Kamila", "Luthfi", "Mika", "Nara", "Oka", "Pandu", "Qori", "Rafli", "Selvi",
+      "Tegar", "Uli", "Vina", "Wulan", "Xaver", "Yani", "Zaki", "Bram", "Celine", "Darren"
+    ],
+    "last_names": [
+      "Ariyanto", "Basuki", "Candra", "Darma", "Effendi", "Firmansyah", "Gunawan", "Hartati", "Iskandar", "Julianto",
+      "Kusnadi", "Lesmana", "Maheswari", "Nugraha", "Oetama", "Pratisto", "Rahman", "Saptono", "Tanuwijaya", "Utami",
+      "Valentina", "Wardana", "Yudhistira", "Zulkarnaen"
+    ]
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "name": "enterprise_demo",
+  "description": "Large enterprise demo profile for portfolio screenshots, workshops, and pre-release validation.",
+  "random_seed": 20260632,
+  "anchor_date": "2026-06-30",
+  "project_keys": [
+    "PAY",
+    "IAM",
+    "DVP",
+    "SRE",
+    "MOB",
+    "DSN",
+    "EXP",
+    "A11Y",
+    "C360",
+    "FRD",
+    "GAN",
+    "SEC",
+    "VUL",
+    "TPR",
+    "PRV",
+    "REG",
+    "CLM",
+    "REV",
+    "FPA",
+    "PRC",
+    "SUP",
+    "KNO",
+    "SLA",
+    "ENT",
+    "REN",
+    "TAL",
+    "WFP",
+    "INT",
+    "WFA",
+    "AUD"
+  ],
+  "scenario_files": [
+    "payment_callback_incident",
+    "authentication_hardening",
+    "privacy_compliance_review",
+    "support_sla_recovery",
+    "finance_month_end",
+    "customer_data_quality",
+    "talent_hiring_program"
+  ],
+  "targets": {
+    "users": 120,
+    "issues": 1200,
+    "sprints": 90,
+    "epics": 90,
+    "labels": 64,
+    "comments": 2800,
+    "activity_logs": 7500,
+    "watchers": 2600,
+    "inactive_watchers": 300,
+    "notifications": 3500,
+    "attachments": 220,
+    "parent_links": 180,
+    "dependencies": 300
+  },
+  "generation": {
+    "min_team_size": 4,
+    "max_team_size": 9,
+    "team_size_spread": 4,
+    "members_per_project": 8,
+    "cross_functional_members_per_team": 2,
+    "viewers_per_project": 2,
+    "sprints_per_project": 3,
+    "epics_per_project": 3,
+    "max_labels_per_issue": 4,
+    "blocked_ratio": 0.14,
+    "mention_ratio": 0.2,
+    "read_notification_ratio": 0.61,
+    "max_watchers_per_issue": 6,
+    "max_children_per_project": 8,
+    "status_weights": {
+      "Todo": 28,
+      "In Progress": 33,
+      "Review": 16,
+      "Done": 23
+    },
+    "priority_weights": {
+      "Low": 10,
+      "Medium": 36,
+      "High": 37,
+      "Critical": 17
+    },
+    "risk_weights": {
+      "Low": 24,
+      "Medium": 47,
+      "High": 29
+    },
+    "customer_impact_weights": {
+      "None": 4,
+      "Low": 16,
+      "Medium": 34,
+      "High": 31,
+      "Internal": 15
+    }
+  }
+}

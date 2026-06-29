@@ -1,0 +1,68 @@
+{
+  "name": "smoke",
+  "description": "Compact cross-functional demo profile for local smoke and CI validation.",
+  "random_seed": 20260630,
+  "anchor_date": "2026-06-30",
+  "project_keys": ["PAY", "IAM", "PRV", "SUP"],
+  "scenario_files": [
+    "payment_callback_incident",
+    "authentication_hardening",
+    "privacy_compliance_review",
+    "support_sla_recovery"
+  ],
+  "targets": {
+    "users": 15,
+    "issues": 40,
+    "sprints": 8,
+    "epics": 8,
+    "labels": 24,
+    "comments": 60,
+    "activity_logs": 120,
+    "watchers": 50,
+    "inactive_watchers": 8,
+    "notifications": 50,
+    "attachments": 18,
+    "parent_links": 6,
+    "dependencies": 10
+  },
+  "generation": {
+    "min_team_size": 3,
+    "max_team_size": 5,
+    "team_size_spread": 1,
+    "members_per_project": 4,
+    "cross_functional_members_per_team": 1,
+    "viewers_per_project": 1,
+    "sprints_per_project": 2,
+    "epics_per_project": 2,
+    "max_labels_per_issue": 3,
+    "blocked_ratio": 0.1,
+    "mention_ratio": 0.14,
+    "read_notification_ratio": 0.55,
+    "max_watchers_per_issue": 4,
+    "max_children_per_project": 2,
+    "status_weights": {
+      "Todo": 34,
+      "In Progress": 28,
+      "Review": 16,
+      "Done": 22
+    },
+    "priority_weights": {
+      "Low": 15,
+      "Medium": 40,
+      "High": 32,
+      "Critical": 13
+    },
+    "risk_weights": {
+      "Low": 35,
+      "Medium": 45,
+      "High": 20
+    },
+    "customer_impact_weights": {
+      "None": 8,
+      "Low": 20,
+      "Medium": 36,
+      "High": 26,
+      "Internal": 10
+    }
+  }
+}
