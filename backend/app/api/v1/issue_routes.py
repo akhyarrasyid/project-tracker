@@ -11,7 +11,13 @@ from app.core.security import check_project_access, get_current_user
 from app.db.models.user import User
 from app.db.repositories.task_repository import TaskRepository
 from app.db.session import get_db
-from app.schemas.task import TaskCreate, TaskListResponse, TaskResponse, TaskUpdate
+from app.schemas.task import (
+    IssueMoveRequest,
+    TaskCreate,
+    TaskListResponse,
+    TaskResponse,
+    TaskUpdate,
+)
 from app.services.task_service import TaskService
 
 router = APIRouter(prefix="/issues", tags=["issues"])
@@ -76,6 +82,32 @@ def update_issue(
     task = _resolve_issue(issue_key, db)
     check_project_access(db, current_user, task.project_id, min_role="MEMBER")
     return TaskService.update_task(db, task, issue_in, current_user.id)
+
+
+@router.patch(
+    "/{issue_id:int}/move",
+    summary="Move an issue on the board",
+    response_model=TaskResponse,
+)
+def move_issue(
+    issue_id: int,
+    payload: IssueMoveRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TaskResponse:
+    task = TaskRepository.get_by_id(db, issue_id)
+    if task is None:
+        raise NotFoundException("Issue", issue_id)
+
+    check_project_access(db, current_user, task.project_id, min_role="MEMBER")
+    return TaskService.move_task(
+        db,
+        task_id=issue_id,
+        target_status=payload.status.value,
+        actor_id=current_user.id,
+        before_issue_id=payload.before_issue_id,
+        after_issue_id=payload.after_issue_id,
+    )
 
 
 @router.delete(

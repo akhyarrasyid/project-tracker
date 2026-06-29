@@ -2,7 +2,7 @@
 
 import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import (
     BaseModel,
@@ -219,6 +219,7 @@ class TaskResponse(BaseModel):
 
     id: int
     number: int
+    rank: int
     key: Optional[str] = None
     project_key: Optional[str] = None
     project_id: int
@@ -268,3 +269,21 @@ class TaskResponse(BaseModel):
 # ── TaskListResponse (pagination envelope) ─────────────────────────────────────
 
 TaskListResponse = PaginatedResponse[TaskResponse]
+
+
+class BoardColumnResponse(BaseModel):
+    status: TaskStatus
+    items: List[TaskResponse]
+    total_count: int
+    next_after: Optional[int] = None
+    next_before: Optional[int] = None
+
+
+class ProjectBoardResponse(BaseModel):
+    columns: Dict[TaskStatus, BoardColumnResponse]
+
+
+class IssueMoveRequest(BaseModel):
+    status: TaskStatus
+    before_issue_id: Optional[int] = None
+    after_issue_id: Optional[int] = None

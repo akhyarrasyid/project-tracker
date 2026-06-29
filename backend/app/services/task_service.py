@@ -1,5 +1,6 @@
 import datetime
 
+from sqlalchemy import func
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, lazyload
 
@@ -13,9 +14,50 @@ STATUS_TODO = "Todo"
 STATUS_IN_PROGRESS = "In Progress"
 STATUS_DONE = "Done"
 STATUS_REVIEW = "Review"
+RANK_STEP = 1024
 
 
 class TaskService:
+    @staticmethod
+    def _rebalance_column(
+        db: Session, project_id: int, status: str, exclude_task_id: int | None = None
+    ) -> None:
+        query = (
+            db.query(Task)
+            .options(
+                lazyload(Task.project),
+                lazyload(Task.sprint_relation),
+                lazyload(Task.assignee_relation),
+                lazyload(Task.creator),
+            )
+            .filter(
+                Task.project_id == project_id,
+                Task.status == status,
+                Task.deleted_at.is_(None),
+            )
+            .order_by(Task.rank.asc(), Task.id.asc())
+            .with_for_update()
+        )
+        if exclude_task_id is not None:
+            query = query.filter(Task.id != exclude_task_id)
+
+        for index, item in enumerate(query.all(), start=1):
+            item.rank = index * RANK_STEP
+        db.flush()
+
+    @staticmethod
+    def _get_next_rank(db: Session, project_id: int, status: str) -> int:
+        max_rank = (
+            db.query(func.max(Task.rank))
+            .filter(
+                Task.project_id == project_id,
+                Task.status == status,
+                Task.deleted_at.is_(None),
+            )
+            .scalar()
+        )
+        return (max_rank or 0) + RANK_STEP
+
     @staticmethod
     def _allocate_issue_number(db: Session, project_id: int) -> int:
         project = (
@@ -116,6 +158,7 @@ class TaskService:
             project_id=project_id,
             created_by_id=creator_id,
             number=issue_number,
+            rank=TaskService._get_next_rank(db, project_id, data["status"]),
             **data,
         )
         db.add(task)
@@ -133,6 +176,161 @@ class TaskService:
             task_id=task.id,
             project_id=project_id,
         )
+        return task
+
+    @staticmethod
+    def move_task(
+        db: Session,
+        task_id: int,
+        target_status: str,
+        actor_id: int,
+        before_issue_id: int | None = None,
+        after_issue_id: int | None = None,
+    ) -> Task:
+        if before_issue_id is not None and after_issue_id is not None and before_issue_id == after_issue_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="before_issue_id and after_issue_id must reference different issues",
+            )
+
+        task = (
+            db.query(Task)
+            .options(
+                lazyload(Task.project),
+                lazyload(Task.sprint_relation),
+                lazyload(Task.assignee_relation),
+                lazyload(Task.creator),
+            )
+            .filter(Task.id == task_id, Task.deleted_at.is_(None))
+            .with_for_update()
+            .one_or_none()
+        )
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Task {task_id} not found",
+            )
+
+        actor = db.query(User).filter(User.id == actor_id).first()
+        is_admin = actor.role == "admin" if actor else False
+        TaskService.validate_and_apply_status_transition(
+            db, task, target_status, actor_id, is_admin=is_admin
+        )
+
+        before_task = None
+        after_task = None
+        if before_issue_id is not None:
+            before_task = (
+                db.query(Task)
+                .options(
+                    lazyload(Task.project),
+                    lazyload(Task.sprint_relation),
+                    lazyload(Task.assignee_relation),
+                    lazyload(Task.creator),
+                )
+                .filter(
+                    Task.id == before_issue_id,
+                    Task.project_id == task.project_id,
+                    Task.status == target_status,
+                    Task.deleted_at.is_(None),
+                )
+                .with_for_update()
+                .one_or_none()
+            )
+            if before_task is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="before_issue_id is not available in the target column",
+                )
+        if after_issue_id is not None:
+            after_task = (
+                db.query(Task)
+                .options(
+                    lazyload(Task.project),
+                    lazyload(Task.sprint_relation),
+                    lazyload(Task.assignee_relation),
+                    lazyload(Task.creator),
+                )
+                .filter(
+                    Task.id == after_issue_id,
+                    Task.project_id == task.project_id,
+                    Task.status == target_status,
+                    Task.deleted_at.is_(None),
+                )
+                .with_for_update()
+                .one_or_none()
+            )
+            if after_task is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="after_issue_id is not available in the target column",
+                )
+
+        if (
+            before_task is not None
+            and after_task is not None
+            and after_task.rank >= before_task.rank
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The requested insertion window is stale",
+            )
+
+        def assign_rank() -> int:
+            if before_task is None and after_task is None:
+                return TaskService._get_next_rank(db, task.project_id, target_status)
+            if before_task is not None and after_task is None:
+                if before_task.rank <= 1:
+                    TaskService._rebalance_column(
+                        db, task.project_id, target_status, exclude_task_id=task.id
+                    )
+                    db.refresh(before_task)
+                return max(1, before_task.rank // 2)
+            if before_task is None and after_task is not None:
+                return after_task.rank + RANK_STEP
+
+            assert before_task is not None
+            assert after_task is not None
+            gap = before_task.rank - after_task.rank
+            if gap <= 1:
+                TaskService._rebalance_column(
+                    db, task.project_id, target_status, exclude_task_id=task.id
+                )
+                db.refresh(before_task)
+                db.refresh(after_task)
+            return (before_task.rank + after_task.rank) // 2
+
+        old_status = task.status
+        old_rank = task.rank
+        task.status = target_status
+        task.rank = assign_rank()
+        TaskService._sync_status_and_progress_update({"status": target_status}, task, actor_id)
+
+        db.commit()
+        db.refresh(task)
+
+        if old_status != task.status:
+            ActivityLoggerService.log(
+                db,
+                actor_id=actor_id,
+                action="Status Changed",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="status",
+                old_val=old_status,
+                new_val=task.status,
+            )
+        if old_rank != task.rank:
+            ActivityLoggerService.log(
+                db,
+                actor_id=actor_id,
+                action="Issue Reordered",
+                task_id=task.id,
+                project_id=task.project_id,
+                field="rank",
+                old_val=str(old_rank),
+                new_val=str(task.rank),
+            )
         return task
 
     @staticmethod

@@ -1,5 +1,5 @@
 import datetime
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, or_
@@ -16,9 +16,10 @@ from app.schemas.project import (
     ProjectResponse,
     ProjectSummaryResponse,
 )
-from app.schemas.task import TaskResponse
+from app.schemas.task import BoardColumnResponse, ProjectBoardResponse, TaskResponse
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+BOARD_STATUSES = ("Todo", "In Progress", "Review", "Done")
 
 
 @router.get("/", response_model=List[ProjectResponse])
@@ -97,6 +98,73 @@ def get_project_tasks(
 ):
     check_project_access(db, current_user, id, min_role="VIEWER")
     return db.query(Task).filter(Task.project_id == id, Task.deleted_at.is_(None)).all()
+
+
+@router.get("/{id}/board", response_model=ProjectBoardResponse)
+def get_project_board(
+    id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: int = 50,
+    status: Optional[str] = None,
+    before: Optional[int] = None,
+    after: Optional[int] = None,
+    start: bool = True,
+    end: bool = False,
+):
+    check_project_access(db, current_user, id, min_role="VIEWER")
+
+    if before is not None and after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="before and after cannot be used together",
+        )
+    if start and end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start and end cannot both be true",
+        )
+
+    statuses = (status,) if status else BOARD_STATUSES
+    columns = {}
+    for column_status in statuses:
+        if column_status not in BOARD_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported board status '{column_status}'",
+            )
+
+        base_query = db.query(Task).filter(
+            Task.project_id == id,
+            Task.status == column_status,
+            Task.deleted_at.is_(None),
+        )
+        total_count = base_query.count()
+
+        ordered = base_query.order_by(Task.rank.asc(), Task.id.asc())
+        if end:
+            ordered = base_query.order_by(Task.rank.desc(), Task.id.desc())
+        if after is not None:
+            ordered = ordered.filter(Task.rank > after)
+        if before is not None:
+            ordered = ordered.filter(Task.rank < before)
+
+        items = ordered.limit(min(limit, 100)).all()
+        if end:
+            items = list(reversed(items))
+
+        next_after = items[-1].rank if items and len(items) < total_count else None
+        next_before = items[0].rank if items and len(items) < total_count else None
+
+        columns[column_status] = BoardColumnResponse(
+            status=column_status,
+            items=[TaskResponse.model_validate(item) for item in items],
+            total_count=total_count,
+            next_after=next_after,
+            next_before=next_before,
+        )
+
+    return ProjectBoardResponse(columns=columns)
 
 
 @router.get("/{id}/summary", response_model=ProjectSummaryResponse)

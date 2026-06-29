@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    BigInteger,
     SmallInteger,
     String,
     Text,
@@ -86,6 +87,7 @@ class Task(Base):
         Integer, ForeignKey("epics.id", ondelete=ONDELETE_SET_NULL), nullable=True
     )
     number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rank: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1024)
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
@@ -189,4 +191,5 @@ class Task(Base):
         Index("ix_tasks_is_blocked", "is_blocked"),
         Index("ix_tasks_due_date", "due_date"),
         Index("ix_tasks_created_at", "created_at"),
+        Index("ix_tasks_project_status_rank", "project_id", "status", "rank"),
     )

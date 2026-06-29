@@ -250,3 +250,110 @@ def test_create_task_allocates_unique_issue_numbers_concurrently():
         )
     finally:
         verify_session.close()
+
+
+def test_move_task_reorders_within_column_and_rebalances_when_gap_is_exhausted(db_session):
+    seed = seed_test_hierarchy(db_session)
+    top = TaskService.create_task(
+        db_session,
+        seed["project_id"],
+        TaskCreate(
+            title="Top",
+            description="Top",
+            status="Todo",
+            due_date=datetime.date.today(),
+            story_points=3,
+            estimated_hours=4,
+        ),
+        seed["admin"].id,
+    )
+    bottom = TaskService.create_task(
+        db_session,
+        seed["project_id"],
+        TaskCreate(
+            title="Bottom",
+            description="Bottom",
+            status="Todo",
+            due_date=datetime.date.today(),
+            story_points=3,
+            estimated_hours=4,
+        ),
+        seed["admin"].id,
+    )
+    moving = TaskService.create_task(
+        db_session,
+        seed["project_id"],
+        TaskCreate(
+            title="Moving",
+            description="Moving",
+            status="Review",
+            due_date=datetime.date.today(),
+            story_points=3,
+            estimated_hours=4,
+        ),
+        seed["admin"].id,
+    )
+
+    top.rank = 1
+    bottom.rank = 2
+    db_session.commit()
+
+    moved = TaskService.move_task(
+        db_session,
+        task_id=moving.id,
+        target_status="Todo",
+        actor_id=seed["admin"].id,
+        before_issue_id=bottom.id,
+        after_issue_id=top.id,
+    )
+
+    ordered = (
+        db_session.query(Task)
+        .filter(Task.project_id == seed["project_id"], Task.status == "Todo")
+        .order_by(Task.rank.asc(), Task.id.asc())
+        .all()
+    )
+    ordered_subset = [task for task in ordered if task.id in {top.id, moving.id, bottom.id}]
+    assert moved.status == "Todo"
+    assert [task.id for task in ordered_subset] == [top.id, moving.id, bottom.id]
+    assert [task.rank for task in ordered_subset] == [1024, 1536, 2048]
+
+
+def test_move_task_to_top_of_column_assigns_rank_before_first_issue(db_session):
+    seed = seed_test_hierarchy(db_session)
+    first = TaskService.create_task(
+        db_session,
+        seed["project_id"],
+        TaskCreate(
+            title="First",
+            description="First",
+            status="Todo",
+            due_date=datetime.date.today(),
+            story_points=3,
+            estimated_hours=4,
+        ),
+        seed["admin"].id,
+    )
+    moving = TaskService.create_task(
+        db_session,
+        seed["project_id"],
+        TaskCreate(
+            title="Moving first",
+            description="Move",
+            status="Review",
+            due_date=datetime.date.today(),
+            story_points=3,
+            estimated_hours=4,
+        ),
+        seed["admin"].id,
+    )
+
+    moved = TaskService.move_task(
+        db_session,
+        task_id=moving.id,
+        target_status="Todo",
+        actor_id=seed["admin"].id,
+        before_issue_id=first.id,
+    )
+    assert moved.rank < first.rank
+    assert moved.status == "Todo"
