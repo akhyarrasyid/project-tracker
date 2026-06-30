@@ -1,10 +1,144 @@
 @import "tailwindcss";
 
+:root {
+  --app-bg: #f4f7fb;
+  --app-panel: rgba(255, 255, 255, 0.94);
+  --app-panel-strong: #ffffff;
+  --app-panel-muted: #eef3fa;
+  --app-sidebar: linear-gradient(180deg, #0f1f47 0%, #0b1531 58%, #091126 100%);
+  --app-sidebar-border: rgba(148, 163, 184, 0.14);
+  --app-border: rgba(15, 23, 42, 0.1);
+  --app-border-strong: rgba(15, 23, 42, 0.16);
+  --app-text: #10213e;
+  --app-text-soft: #5b6b86;
+  --app-text-faint: #7d8ca6;
+  --app-heading: #08152f;
+  --app-accent: #2563eb;
+  --app-accent-soft: rgba(37, 99, 235, 0.12);
+  --app-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  --app-column-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme="dark"] {
+  --app-bg: #09111f;
+  --app-panel: rgba(10, 19, 37, 0.94);
+  --app-panel-strong: #0d1730;
+  --app-panel-muted: #111f3d;
+  --app-sidebar: linear-gradient(180deg, #071125 0%, #0a1732 55%, #081022 100%);
+  --app-sidebar-border: rgba(96, 165, 250, 0.14);
+  --app-border: rgba(148, 163, 184, 0.16);
+  --app-border-strong: rgba(148, 163, 184, 0.22);
+  --app-text: #e5eefc;
+  --app-text-soft: #9eb0cd;
+  --app-text-faint: #7e90af;
+  --app-heading: #f7fbff;
+  --app-accent: #3b82f6;
+  --app-accent-soft: rgba(59, 130, 246, 0.18);
+  --app-shadow: 0 18px 48px rgba(2, 6, 23, 0.4);
+  --app-column-shadow: 0 14px 36px rgba(2, 6, 23, 0.24);
+}
+
 * {
   box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 34%),
+    var(--app-bg);
+  color: var(--app-text);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 26%),
+    var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-sidebar {
+  background: var(--app-sidebar);
+  border-color: var(--app-sidebar-border);
+}
+
+.app-panel {
+  background: var(--app-panel);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+}
+
+.app-panel-muted {
+  background: var(--app-panel-muted);
+  border: 1px solid var(--app-border);
+}
+
+.app-card {
+  background: var(--app-panel-strong);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-column-shadow);
+}
+
+.app-heading {
+  color: var(--app-heading);
+}
+
+.app-text-soft {
+  color: var(--app-text-soft);
+}
+
+.app-text-faint {
+  color: var(--app-text-faint);
+}
+
+.app-border {
+  border-color: var(--app-border);
+}
+
+.app-border-strong {
+  border-color: var(--app-border-strong);
+}
+
+.app-accent-ring {
+  box-shadow: 0 0 0 3px var(--app-accent-soft);
+}
+
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }

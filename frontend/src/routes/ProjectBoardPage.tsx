@@ -192,10 +192,12 @@ export function ProjectBoardPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">Board view</div>
-          <h2 className="mt-1 text-xl font-semibold text-neutral-900">Current work</h2>
+          <div className="text-xs font-medium tracking-[0.18em] text-[color:var(--app-text-soft)]">Board view</div>
+          <h2 className="app-heading mt-1 text-2xl font-semibold">Current work</h2>
         </div>
-        <div className="text-sm text-neutral-500">{totalIssues} issues</div>
+        <div className="rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-panel)] px-3 py-1.5 text-sm text-[color:var(--app-text-soft)]">
+          {totalIssues} issues
+        </div>
       </div>
 
       <DndContext
@@ -204,8 +206,8 @@ export function ProjectBoardPage() {
         onDragStart={(event) => setActiveTaskId(Number(String(event.active.id).replace("task:", "")))}
         onDragEnd={handleDragEnd}
       >
-        <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max gap-4">
+        <div className="app-scrollbar overflow-x-auto pb-2">
+          <div className="flex min-w-max gap-5">
             {COLUMNS.map((column) => {
               const boardColumn = boardQuery.data?.columns[column];
               const tasks = boardColumn?.items ?? [];
@@ -247,7 +249,7 @@ export function ProjectBoardPage() {
 
         <DragOverlay>
           {activeTask ? (
-            <div className="w-[300px]">
+            <div className="w-[320px] rotate-[1deg] opacity-95">
               <TaskCard task={activeTask} onTaskClick={() => {}} />
             </div>
           ) : null}

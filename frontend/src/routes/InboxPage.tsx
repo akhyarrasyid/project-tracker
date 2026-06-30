@@ -140,9 +140,9 @@ export function InboxPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[12px] font-medium text-neutral-500">Inbox</div>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-950">Notifications</h1>
-          <div className="mt-1 text-sm text-neutral-500">
+          <div className="text-[12px] font-medium text-[color:var(--app-text-soft)]">Inbox</div>
+          <h1 className="app-heading mt-1 text-3xl font-semibold">Notifications</h1>
+          <div className="mt-1 text-sm text-[color:var(--app-text-soft)]">
             {unreadCountQuery.data?.unread_count ?? 0} unread
           </div>
         </div>
@@ -155,14 +155,14 @@ export function InboxPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search notifications"
-              className="w-full rounded-md border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-neutral-400"
+              className="w-full rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-panel)] py-2.5 pl-9 pr-3 text-sm text-[color:var(--app-heading)] outline-none placeholder:text-[color:var(--app-text-faint)] focus:border-blue-500"
             />
           </label>
           <button
             type="button"
             onClick={() => markAllReadMutation.mutate()}
             disabled={markAllReadMutation.isPending || !unreadCountQuery.data?.unread_count}
-            className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-panel)] px-3 py-2.5 text-sm text-[color:var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CheckCheck className="h-4 w-4" />
             Mark all as read
@@ -177,10 +177,10 @@ export function InboxPage() {
             type="button"
             onClick={() => handleFilterChange(filter.value)}
             className={cn(
-              "rounded-md px-3 py-2 text-sm transition-colors",
+              "rounded-xl px-3.5 py-2.5 text-sm transition-colors",
               activeFilter === filter.value
-                ? "bg-neutral-900 text-white"
-                : "bg-white text-neutral-600 hover:bg-neutral-100",
+                ? "bg-[color:var(--app-heading)] text-white shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
+                : "bg-[color:var(--app-panel)] text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)]",
             )}
           >
             {filter.label}
@@ -188,35 +188,35 @@ export function InboxPage() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <div className="app-panel overflow-hidden rounded-[24px]">
         {notificationsQuery.isLoading ? (
           <div className="space-y-3 px-5 py-5">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="animate-pulse rounded-md border border-neutral-100 px-4 py-4">
-                <div className="h-3 w-28 rounded bg-neutral-200" />
-                <div className="mt-3 h-4 w-3/4 rounded bg-neutral-200" />
-                <div className="mt-2 h-3 w-2/3 rounded bg-neutral-100" />
+              <div key={index} className="animate-pulse rounded-2xl border border-[color:var(--app-border)] px-4 py-4">
+                <div className="h-3 w-28 rounded bg-[color:var(--app-panel-muted)]" />
+                <div className="mt-3 h-4 w-3/4 rounded bg-[color:var(--app-panel-muted)]" />
+                <div className="mt-2 h-3 w-2/3 rounded bg-[color:var(--app-panel-muted)]/80" />
               </div>
             ))}
           </div>
         ) : notificationsQuery.isError ? (
-          <div className="px-5 py-10 text-sm text-neutral-500">
-            <div className="font-medium text-neutral-800">Couldn&apos;t load notifications.</div>
+          <div className="px-5 py-10 text-sm text-[color:var(--app-text-soft)]">
+            <div className="font-medium text-[color:var(--app-heading)]">Couldn&apos;t load notifications.</div>
             <button
               type="button"
               onClick={() => void notificationsQuery.refetch()}
-              className="mt-3 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-700"
+              className="mt-3 rounded-xl border border-[color:var(--app-border)] px-3 py-2 text-sm text-[color:var(--app-text)]"
             >
               Retry
             </button>
           </div>
         ) : !notifications.length ? (
           <div className="px-5 py-12 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--app-panel-muted)] text-[color:var(--app-text-soft)]">
               <Bell className="h-5 w-5" />
             </div>
-            <div className="mt-4 text-base font-medium text-neutral-900">You&apos;re all caught up</div>
-            <div className="mt-1 text-sm text-neutral-500">
+            <div className="app-heading mt-4 text-base font-medium">You&apos;re all caught up</div>
+            <div className="mt-1 text-sm text-[color:var(--app-text-soft)]">
               {activeFilter === "unread"
                 ? "No unread notifications need your attention."
                 : "No notifications match this view right now."}
@@ -225,21 +225,21 @@ export function InboxPage() {
         ) : (
           <div>
             {groupedNotifications.map(([label, items]) => (
-              <section key={label} className="border-b border-neutral-100 last:border-b-0">
-                <div className="px-5 py-3 text-[12px] font-medium text-neutral-500">{label}</div>
+              <section key={label} className="border-b border-[color:var(--app-border)] last:border-b-0">
+                <div className="px-5 py-3 text-[12px] font-medium text-[color:var(--app-text-soft)]">{label}</div>
                 <div>
                   {items.map((notification) => (
                     <div
                       key={notification.id}
                       className={cn(
-                        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-t border-neutral-100 px-5 py-4",
-                        !notification.is_read && "bg-neutral-50/60",
+                        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 border-t border-[color:var(--app-border)] px-5 py-4",
+                        !notification.is_read && "bg-blue-500/[0.05]",
                       )}
                     >
                       <button
                         type="button"
                         onClick={() => void handleOpenNotification(notification)}
-                        className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600"
+                        className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--app-panel-muted)] text-[color:var(--app-text-soft)]"
                         aria-label={`Open ${notification.title}`}
                       >
                         <Bell className="h-4 w-4" />
@@ -256,17 +256,17 @@ export function InboxPage() {
                           ) : null}
                           <div
                             className={cn(
-                              "truncate text-sm text-neutral-900",
+                              "truncate text-sm text-[color:var(--app-heading)]",
                               !notification.is_read && "font-medium",
                             )}
                           >
                             {notification.title}
                           </div>
                         </div>
-                        <div className="mt-1 truncate text-sm text-neutral-600">
+                        <div className="mt-1 truncate text-sm text-[color:var(--app-text)]">
                           {notification.body_preview || notification.issue?.title || "No preview available."}
                         </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-neutral-500">
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-[color:var(--app-text-soft)]">
                           {notification.project?.name ? <span>{notification.project.name}</span> : null}
                           {notification.issue?.key ? <span>{notification.issue.key}</span> : null}
                           <span>{getRelativeTimeLabel(notification.created_at)}</span>
@@ -281,14 +281,14 @@ export function InboxPage() {
                               ? markUnreadMutation.mutate(notification.id)
                               : markReadMutation.mutate(notification.id)
                           }
-                          className="rounded-md border border-neutral-200 px-2.5 py-2 text-[12px] text-neutral-600 hover:bg-neutral-50"
+                          className="rounded-xl border border-[color:var(--app-border)] px-2.5 py-2 text-[12px] text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)]"
                         >
                           {notification.is_read ? "Mark unread" : "Mark read"}
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleOpenNotification(notification)}
-                          className="rounded-md border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50"
+                          className="rounded-xl border border-[color:var(--app-border)] p-2 text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)]"
                           aria-label={`Open issue ${notification.issue?.key ?? notification.id}`}
                         >
                           <ChevronRight className="h-4 w-4" />
@@ -301,12 +301,12 @@ export function InboxPage() {
             ))}
 
             {notificationsQuery.hasNextPage ? (
-              <div className="flex justify-center border-t border-neutral-100 px-5 py-4">
+              <div className="flex justify-center border-t border-[color:var(--app-border)] px-5 py-4">
                 <button
                   type="button"
                   onClick={() => void notificationsQuery.fetchNextPage()}
                   disabled={notificationsQuery.isFetchingNextPage}
-                  className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--app-border)] px-3 py-2 text-sm text-[color:var(--app-text)] disabled:opacity-50"
                 >
                   {notificationsQuery.isFetchingNextPage ? (
                     <>
