@@ -13,10 +13,33 @@ jobs:
   sonar:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: project_tracker_test
+          POSTGRES_PASSWORD: project_tracker_test
+          POSTGRES_DB: project_tracker_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U project_tracker_test -d project_tracker_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     permissions:
       contents: read
       pull-requests: read
+
+    env:
+      DATABASE_URL: postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test
+      TEST_DATABASE_URL: postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/project_tracker_test
+      TEST_DATABASE_ADMIN_URL: postgresql://project_tracker_test:project_tracker_test@127.0.0.1:55432/postgres
+      SECRET_KEY: ci-secret-key
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
 
     steps:
       # Checkout repository
@@ -45,7 +68,7 @@ jobs:
       # Install backend dependencies
       - name: Install Backend Dependencies
         working-directory: backend
-        run: uv sync
+        run: uv sync --frozen
 
       # Setup Node.js
       - name: Setup Node.js
@@ -63,15 +86,15 @@ jobs:
       # Run Backend Tests
       - name: Run Backend Tests
         working-directory: backend
-        run: uv run pytest --cov=app --cov-report=xml tests/
+        run: uv run pytest tests/ --cov=app --cov-report=xml:coverage.xml
 
       # Run Frontend Tests
       - name: Run Frontend Tests
         working-directory: frontend
-        run: npx vitest run --coverage
+        run: npm test -- --run --coverage
 
       # SonarCloud Scan
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
