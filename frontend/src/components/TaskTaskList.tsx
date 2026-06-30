@@ -1,4 +1,7 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { CalendarDays, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { PRIORITY_META, STATUS_META, formatStatusLabel } from "../app/issue-appearance";
 import type { Task } from "../types/task";
 
 interface Props {
@@ -6,7 +9,15 @@ interface Props {
   readonly onTaskClick: (task: Task) => void;
 }
 
-type SortField = "id" | "title" | "assignee" | "created_by" | "priority" | "status" | "story_points" | "due_date";
+type SortField =
+  | "id"
+  | "title"
+  | "assignee"
+  | "created_by"
+  | "priority"
+  | "status"
+  | "story_points"
+  | "due_date";
 type SortOrder = "asc" | "desc" | null;
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -29,7 +40,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset selected index when tasks list changes
   useEffect(() => {
     setSelectedIndex(-1);
   }, [tasks]);
@@ -51,11 +61,13 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
   };
 
   const sortedTasks = useMemo(() => {
-    if (!sortField || !sortOrder) return tasks;
+    if (!sortField || !sortOrder) {
+      return tasks;
+    }
 
     return [...tasks].sort((a, b) => {
-      let valA: any = a[sortField as keyof Task];
-      let valB: any = b[sortField as keyof Task];
+      let valA: string | number | null | undefined = a[sortField as keyof Task] as never;
+      let valB: string | number | null | undefined = b[sortField as keyof Task] as never;
 
       if (sortField === "priority") {
         valA = PRIORITY_ORDER[a.priority] || 0;
@@ -77,7 +89,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
     });
   }, [tasks, sortField, sortOrder]);
 
-  // Handle Keyboard Navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (sortedTasks.length === 0) return;
 
@@ -87,78 +98,26 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-    } else if (e.key === "Enter") {
-      if (selectedIndex >= 0 && selectedIndex < sortedTasks.length) {
-        e.preventDefault();
-        onTaskClick(sortedTasks[selectedIndex]);
-      }
+    } else if (e.key === "Enter" && selectedIndex >= 0 && selectedIndex < sortedTasks.length) {
+      e.preventDefault();
+      onTaskClick(sortedTasks[selectedIndex]);
     }
   };
 
-  // Scroll selected row into view if needed
   useEffect(() => {
     if (selectedIndex >= 0 && containerRef.current) {
       const selectedRow = containerRef.current.querySelector(`[data-index="${selectedIndex}"]`);
-      if (selectedRow) {
-        selectedRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
+      selectedRow?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }, [selectedIndex]);
 
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "Critical":
-        return <span className="bg-red-500/10 text-red-400 border border-red-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm shadow-red-500/5">Critical</span>;
-      case "High":
-        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm shadow-amber-500/5">High</span>;
-      case "Medium":
-        return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm shadow-blue-500/5">Medium</span>;
-      default:
-        return <span className="bg-slate-500/10 text-slate-400 border border-slate-500/25 px-2.5 py-0.5 rounded-full text-xs font-bold shadow-sm shadow-slate-500/5">Low</span>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Todo":
-        return <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">Todo</span>;
-      case "In Progress":
-        return <span className="bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">In Progress</span>;
-      case "Review":
-        return <span className="bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">In Review</span>;
-      case "Done":
-        return <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">Done</span>;
-      default:
-        return <span className="bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide">{status}</span>;
-    }
-  };
-
-  const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return (
-        <svg className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity ml-1.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-        </svg>
-      );
-    }
-    return sortOrder === "asc" ? (
-      <svg className="w-3 h-3 text-blue-600 ml-1.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-      </svg>
-    ) : (
-      <svg className="w-3 h-3 text-blue-600 ml-1.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-      </svg>
-    );
-  };
-
   if (tasks.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center text-slate-400">
-        <svg className="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-        <span className="text-sm font-medium text-slate-500">Tidak ada task yang cocok dengan filter aktif</span>
+      <div className="app-panel rounded-[24px] p-16 text-center text-[color:var(--app-text-soft)]">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--app-panel-muted)]">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <span className="text-sm font-medium">Tidak ada issue yang cocok dengan filter aktif</span>
       </div>
     );
   }
@@ -169,64 +128,69 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
         ref={containerRef}
         onKeyDown={handleKeyDown}
         tabIndex={0}
-        className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500/20 max-h-[600px] overflow-y-auto"
+        className="app-panel app-scrollbar max-h-[680px] overflow-auto rounded-[24px] focus:outline-none"
       >
-        <table className="w-full text-left border-collapse table-auto">
+        <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="sticky top-0 bg-slate-50 border-b border-slate-100 z-10 shadow-sm">
-              <th
-                onClick={() => handleSort("id")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                ID {renderSortIcon("id")}
-              </th>
-              <th
-                onClick={() => handleSort("title")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Summary / Title {renderSortIcon("title")}
-              </th>
-              <th
-                onClick={() => handleSort("assignee")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Assignee {renderSortIcon("assignee")}
-              </th>
-              <th
-                onClick={() => handleSort("created_by")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Reporter {renderSortIcon("created_by")}
-              </th>
-              <th
-                onClick={() => handleSort("priority")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Priority {renderSortIcon("priority")}
-              </th>
-              <th
-                onClick={() => handleSort("status")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Status {renderSortIcon("status")}
-              </th>
-              <th
-                onClick={() => handleSort("story_points")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none text-center whitespace-nowrap"
-              >
-                SP {renderSortIcon("story_points")}
-              </th>
-              <th
-                onClick={() => handleSort("due_date")}
-                className="py-3.5 px-6 text-xs font-extrabold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 hover:text-slate-850 transition-colors group select-none whitespace-nowrap"
-              >
-                Due Date {renderSortIcon("due_date")}
-              </th>
+            <tr className="sticky top-0 z-10 border-b border-[color:var(--app-border)] bg-[color:var(--app-panel)]">
+              <HeaderCell label="ID" field="id" sortField={sortField} sortOrder={sortOrder} onSort={handleSort} />
+              <HeaderCell
+                label="Summary / title"
+                field="title"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <HeaderCell
+                label="Assignee"
+                field="assignee"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <HeaderCell
+                label="Reporter"
+                field="created_by"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <HeaderCell
+                label="Priority"
+                field="priority"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <HeaderCell
+                label="Status"
+                field="status"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <HeaderCell
+                label="SP"
+                field="story_points"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                centered
+              />
+              <HeaderCell
+                label="Due date"
+                field="due_date"
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700 text-sm">
+          <tbody className="divide-y divide-[color:var(--app-border)] text-sm text-[color:var(--app-text)]">
             {sortedTasks.map((task, index) => {
               const isSelected = selectedIndex === index;
+              const priorityMeta = PRIORITY_META[task.priority];
+              const statusMeta = STATUS_META[task.status];
               return (
                 <tr
                   key={task.id}
@@ -235,13 +199,13 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                     setSelectedIndex(index);
                     onTaskClick(task);
                   }}
-                  className={`cursor-pointer transition-all duration-150 ${
+                  className={`cursor-pointer transition ${
                     isSelected
-                      ? "bg-blue-50/50 border-l-4 border-l-blue-600 font-medium"
-                      : "hover:bg-slate-50/60"
+                      ? "bg-blue-500/[0.08] shadow-[inset_4px_0_0_0_var(--app-accent)]"
+                      : "hover:bg-[color:var(--app-panel-muted)]/80"
                   }`}
                 >
-                  <td className="py-3.5 px-6 font-bold text-blue-600 whitespace-nowrap select-none">
+                  <td className="px-6 py-4 align-top">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -249,37 +213,45 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                         setSelectedIndex(index);
                         onTaskClick(task);
                       }}
-                      className="font-bold text-blue-600 hover:underline hover:text-blue-700 focus:outline-none"
+                      className="text-sm font-semibold text-blue-600 hover:underline"
                     >
                       {task.key}
                     </button>
                   </td>
-                  <td className={`py-3.5 px-6 text-slate-800 ${isSelected ? "font-bold text-blue-900" : ""}`}>
-                    {task.title}
-                  </td>
-                  <td className="py-3.5 px-6 whitespace-nowrap text-slate-600">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs">👤</span>
-                      <span className="truncate max-w-[120px]">{task.assignee || "Unassigned"}</span>
+                  <td className="px-6 py-4 align-top">
+                    <div className={`max-w-[440px] leading-6 ${isSelected ? "font-semibold" : "font-medium"}`}>
+                      {task.title}
                     </div>
                   </td>
-                  <td className="py-3.5 px-6 whitespace-nowrap text-slate-400 text-xs">
-                    {task.created_by}
+                  <td className="px-6 py-4 align-top text-[color:var(--app-text-soft)]">
+                    <div className="flex max-w-[170px] items-center gap-2">
+                      <UserCircle2 className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{task.assignee || "Unassigned"}</span>
+                    </div>
                   </td>
-                  <td className="py-3.5 px-6 whitespace-nowrap">
-                    {getPriorityBadge(task.priority)}
+                  <td className="px-6 py-4 align-top text-[color:var(--app-text-faint)]">{task.created_by}</td>
+                  <td className="px-6 py-4 align-top">
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${priorityMeta.chipClassName}`}>
+                      {priorityMeta.label}
+                    </span>
                   </td>
-                  <td className="py-3.5 px-6 whitespace-nowrap">
-                    {getStatusBadge(task.status)}
+                  <td className="px-6 py-4 align-top">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${statusMeta.badgeClassName}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${statusMeta.dotClassName}`} />
+                      {formatStatusLabel(task.status)}
+                    </span>
                   </td>
-                  <td className="py-3.5 px-6 text-center font-bold text-slate-500">
+                  <td className="px-6 py-4 text-center align-top font-semibold text-[color:var(--app-text-soft)]">
                     {task.story_points}
                   </td>
-                  <td className="py-3.5 px-6 whitespace-nowrap text-slate-500 text-xs">
-                    📅 {new Date(task.due_date).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                    })}
+                  <td className="px-6 py-4 align-top text-[color:var(--app-text-soft)]">
+                    <span className="inline-flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      {new Date(task.due_date).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
                   </td>
                 </tr>
               );
@@ -287,10 +259,46 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between px-3 text-[10px] text-slate-400 font-medium">
-        <span>Total: {sortedTasks.length} task</span>
-        <span>💡 Tip: Klik tabel & gunakan tombol keyboard ↑ ↓ untuk navigasi, Enter untuk membuka.</span>
+      <div className="flex items-center justify-between px-1 text-[11px] text-[color:var(--app-text-faint)]">
+        <span>Total: {sortedTasks.length} issues</span>
+        <span>Use arrow keys to navigate rows and Enter to open the selected issue.</span>
       </div>
     </div>
+  );
+}
+
+function HeaderCell({
+  label,
+  field,
+  sortField,
+  sortOrder,
+  onSort,
+  centered = false,
+}: {
+  label: string;
+  field: SortField;
+  sortField: SortField | null;
+  sortOrder: SortOrder;
+  onSort: (field: SortField) => void;
+  centered?: boolean;
+}) {
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className={`px-6 py-3.5 text-[11px] font-semibold tracking-[0.16em] text-[color:var(--app-text-soft)] ${
+        centered ? "text-center" : ""
+      }`}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        {label}
+        {sortField !== field ? (
+          <ChevronsUpDown className="h-3.5 w-3.5 opacity-45" />
+        ) : sortOrder === "asc" ? (
+          <ChevronUp className="h-3.5 w-3.5 text-blue-600" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 text-blue-600" />
+        )}
+      </span>
+    </th>
   );
 }

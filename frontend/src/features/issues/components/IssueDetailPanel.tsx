@@ -305,7 +305,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
   const panelBody = (() => {
     if (issueQuery.isLoading || !draft) {
       return (
-        <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+        <div className="flex h-full items-center justify-center text-sm text-[color:var(--app-text-soft)]">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
           Memuat issue...
         </div>
@@ -315,11 +315,11 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
     const dueDateValue = draft.due_date ? draft.due_date.slice(0, 10) : "";
 
     return (
-      <div className="flex h-full flex-col bg-white">
-        <div className="border-b border-neutral-200 px-5 py-4">
+      <div className="flex h-full flex-col bg-[color:var(--app-panel-strong)] text-[color:var(--app-text)]">
+        <div className="border-b border-[color:var(--app-border)] px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="text-[12px] text-neutral-500">{draft.key}</div>
+              <div className="text-[12px] font-medium text-[color:var(--app-text-soft)]">{draft.key}</div>
               <input
                 aria-label="Issue title"
                 value={draft.title}
@@ -350,7 +350,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                   }
                   void enqueuePatch({ title: trimmedTitle });
                 }}
-                className="mt-1 w-full border-0 bg-transparent p-0 text-[22px] font-semibold leading-7 text-neutral-950 outline-none"
+                className="app-heading mt-1 w-full border-0 bg-transparent p-0 text-[24px] font-semibold leading-8 outline-none"
               />
             </div>
 
@@ -358,20 +358,20 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
               <button
                 type="button"
                 onClick={() => setMenuOpen((current) => !current)}
-                className="rounded-md border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900"
+                className="rounded-xl border border-[color:var(--app-border)] p-2 text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)] hover:text-[color:var(--app-heading)]"
                 aria-label="Issue actions"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
               {menuOpen ? (
-                <div className="absolute right-0 top-11 z-10 min-w-44 rounded-md border border-neutral-200 bg-white p-1 shadow-sm">
+                <div className="absolute right-0 top-11 z-10 min-w-44 rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-panel)] p-1 shadow-[var(--app-shadow)]">
                   <button
                     type="button"
                     onClick={() => {
                       setMenuOpen(false);
                       setShowDeleteDialog(true);
                     }}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-500/10"
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete issue
@@ -382,7 +382,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md border border-neutral-200 p-2 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900"
+                  className="rounded-xl border border-[color:var(--app-border)] p-2 text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)] hover:text-[color:var(--app-heading)]"
                   aria-label="Close issue"
                 >
                   <X className="h-4 w-4" />
@@ -408,86 +408,86 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="min-h-0 overflow-y-auto px-5 py-5">
+        <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="app-scrollbar min-h-0 overflow-y-auto px-6 py-6">
             <section>
-              <div className="mb-2 text-[12px] font-medium text-neutral-500">Description</div>
+              <div className="mb-2 text-[12px] font-medium tracking-[0.16em] text-[color:var(--app-text-soft)]">Description</div>
               <textarea
                 aria-label="Issue description"
                 value={descriptionDraft}
                 onChange={(event) => setDescriptionDraft(event.target.value)}
                 rows={6}
-                className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm leading-6 text-neutral-800 outline-none focus:border-neutral-400"
+                className="w-full rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-panel)] px-4 py-3 text-sm leading-6 text-[color:var(--app-text)] outline-none focus:border-blue-500"
                 placeholder="Tambahkan konteks issue di sini..."
               />
               <div className="mt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setDescriptionDraft(draft.description)}
-                  className="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
+                  className="rounded-xl border border-[color:var(--app-border)] px-3 py-2 text-sm text-[color:var(--app-text-soft)] hover:bg-[color:var(--app-panel-muted)]"
                 >
                   Reset
                 </button>
                 <button
                   type="button"
                   onClick={() => void enqueuePatch({ description: descriptionDraft })}
-                  className="rounded-md bg-neutral-900 px-3 py-2 text-sm text-white hover:bg-neutral-800"
+                  className="rounded-xl bg-[color:var(--app-heading)] px-3 py-2 text-sm text-white hover:opacity-92"
                 >
                   Save description
                 </button>
               </div>
             </section>
 
-            <section className="mt-6 border-t border-neutral-200 pt-6">
-              <div className="mb-3 text-[12px] font-medium text-neutral-500">Sub-issues</div>
+            <section className="mt-6 border-t border-[color:var(--app-border)] pt-6">
+              <div className="mb-3 text-[12px] font-medium tracking-[0.16em] text-[color:var(--app-text-soft)]">Sub-issues</div>
               {subIssues.length ? (
                 <div className="space-y-2">
                   {subIssues.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-700"
+                      className="app-card rounded-2xl px-3 py-3 text-sm text-[color:var(--app-text)]"
                     >
-                      <div className="text-[12px] text-neutral-500">{item.key}</div>
+                      <div className="text-[12px] text-[color:var(--app-text-soft)]">{item.key}</div>
                       <div className="mt-1">{item.title}</div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-sm text-neutral-500">
+                <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] px-3 py-4 text-sm text-[color:var(--app-text-soft)]">
                   Belum ada sub-issue.
                 </div>
               )}
             </section>
 
-            <section className="mt-6 border-t border-neutral-200 pt-6">
-              <div className="mb-3 text-[12px] font-medium text-neutral-500">Comments</div>
+            <section className="mt-6 border-t border-[color:var(--app-border)] pt-6">
+              <div className="mb-3 text-[12px] font-medium tracking-[0.16em] text-[color:var(--app-text-soft)]">Comments</div>
               <div className="space-y-3">
                 {commentsQuery.data?.length ? (
                   commentsQuery.data.map((comment) => (
                     <div
                       key={comment.id}
-                      className="rounded-md border border-neutral-200 px-3 py-3 text-sm"
+                      className="app-card rounded-2xl px-4 py-4 text-sm"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium text-neutral-900">{comment.author.full_name}</div>
-                        <div className="text-[12px] text-neutral-500">{new Date(comment.created_at).toLocaleString("id-ID")}</div>
+                        <div className="font-medium text-[color:var(--app-heading)]">{comment.author.full_name}</div>
+                        <div className="text-[12px] text-[color:var(--app-text-soft)]">{new Date(comment.created_at).toLocaleString("id-ID")}</div>
                       </div>
-                      <div className="mt-2 whitespace-pre-wrap text-neutral-700">{comment.content}</div>
+                      <div className="mt-2 whitespace-pre-wrap text-[color:var(--app-text)]">{comment.content}</div>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-sm text-neutral-500">
+                  <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] px-3 py-4 text-sm text-[color:var(--app-text-soft)]">
                     Belum ada komentar.
                   </div>
                 )}
               </div>
-              <div className="mt-4 rounded-md border border-neutral-200 p-3">
+              <div className="app-card mt-4 rounded-2xl p-4">
                 <textarea
                   aria-label="New comment"
                   value={commentDraft}
                   onChange={(event) => setCommentDraft(event.target.value)}
                   rows={3}
-                  className="w-full resize-none border-0 p-0 text-sm text-neutral-800 outline-none"
+                  className="w-full resize-none border-0 bg-transparent p-0 text-sm text-[color:var(--app-text)] outline-none"
                   placeholder="Tambahkan komentar..."
                 />
                 <div className="mt-3 flex justify-end">
@@ -495,7 +495,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                     type="button"
                     disabled={!commentDraft.trim() || commentMutation.isPending}
                     onClick={() => commentMutation.mutate()}
-                    className="rounded-md bg-neutral-900 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-[color:var(--app-heading)] px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {commentMutation.isPending ? "Posting..." : "Post comment"}
                   </button>
@@ -503,23 +503,23 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
               </div>
             </section>
 
-            <section className="mt-6 border-t border-neutral-200 pt-6">
-              <div className="mb-3 text-[12px] font-medium text-neutral-500">Activity</div>
+            <section className="mt-6 border-t border-[color:var(--app-border)] pt-6">
+              <div className="mb-3 text-[12px] font-medium tracking-[0.16em] text-[color:var(--app-text-soft)]">Activity</div>
               <div className="space-y-3">
                 {activitiesQuery.data?.length ? (
                   activitiesQuery.data.map((item) => (
                     <div key={item.id} className="flex gap-3 text-sm">
-                      <div className="mt-1 h-2 w-2 rounded-full bg-neutral-300" />
+                      <div className="mt-1 h-2 w-2 rounded-full bg-blue-500/70" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-neutral-800">{describeActivity(item)}</div>
-                        <div className="mt-1 text-[12px] text-neutral-500">
+                        <div className="text-[color:var(--app-text)]">{describeActivity(item)}</div>
+                        <div className="mt-1 text-[12px] text-[color:var(--app-text-soft)]">
                           {new Date(item.created_at).toLocaleString("id-ID")}
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-md border border-dashed border-neutral-200 px-3 py-3 text-sm text-neutral-500">
+                  <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] px-3 py-4 text-sm text-[color:var(--app-text-soft)]">
                     Aktivitas akan muncul setelah issue berubah.
                   </div>
                 )}
@@ -527,17 +527,17 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
             </section>
           </div>
 
-          <aside className="min-h-0 overflow-y-auto border-l border-neutral-200 px-5 py-5">
+          <aside className="app-scrollbar min-h-0 overflow-y-auto border-l border-[color:var(--app-border)] bg-[color:var(--app-panel)] px-5 py-6">
             <div className="space-y-4 text-sm">
               <label className="block">
-                <div className="mb-1 text-[12px] text-neutral-500">Status</div>
+                <div className="mb-1 text-[12px] font-medium text-[color:var(--app-text-soft)]">Status</div>
                 <select
                   aria-label="Issue status"
                   value={draft.status}
                   onChange={(event) =>
                     void enqueuePatch({ status: event.target.value as TaskStatus })
                   }
-                  className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="w-full rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                 >
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -548,14 +548,14 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
               </label>
 
               <label className="block">
-                <div className="mb-1 text-[12px] text-neutral-500">Priority</div>
+                <div className="mb-1 text-[12px] font-medium text-[color:var(--app-text-soft)]">Priority</div>
                 <select
                   aria-label="Issue priority"
                   value={draft.priority}
                   onChange={(event) =>
                     void enqueuePatch({ priority: event.target.value as TaskPriority })
                   }
-                  className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="w-full rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                 >
                   {PRIORITY_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -566,7 +566,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
               </label>
 
               <label className="block">
-                <div className="mb-1 text-[12px] text-neutral-500">Assignee</div>
+                <div className="mb-1 text-[12px] font-medium text-[color:var(--app-text-soft)]">Assignee</div>
                 <select
                   aria-label="Issue assignee"
                   value={draft.assignee_id ?? ""}
@@ -575,7 +575,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                       assignee_id: event.target.value ? Number(event.target.value) : null,
                     })
                   }
-                  className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400"
+                  className="w-full rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                 >
                   <option value="">Unassigned</option>
                   {(usersQuery.data ?? []).map((user) => (
