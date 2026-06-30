@@ -42,7 +42,7 @@ export function WorkspaceLayout() {
 
   return (
     <div className="app-shell flex min-h-screen">
-      <aside className="app-sidebar flex w-64 shrink-0 flex-col border-r text-slate-100">
+      <aside className="app-sidebar sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r text-slate-100">
         <div className="border-b border-white/8 px-4 py-4">
           <div className="flex items-center gap-3">
             <img
@@ -73,7 +73,7 @@ export function WorkspaceLayout() {
           </div>
         </div>
 
-        <nav className="app-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
+        <nav className="app-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
           <div className="space-y-1">
             <NavLink
               to="/inbox"
@@ -161,7 +161,7 @@ export function WorkspaceLayout() {
             Keluar
           </button>
           <div className="mt-3 text-[11px] text-slate-300/45" data-testid="build-identity">
-            Build {buildLabel}
+            {buildLabel}
           </div>
         </div>
       </aside>

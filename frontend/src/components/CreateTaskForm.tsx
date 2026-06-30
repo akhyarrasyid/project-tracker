@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { metaApi } from "../api/meta";
 import type { TaskCreate, TaskPriority, TaskStatus, Quarter, RiskLevel, CustomerImpact } from "../types/task";
 import type { Department, Team, ProjectMeta, UserMeta } from "../types/meta";
@@ -16,6 +16,10 @@ interface Props {
   readonly onCreate: (data: TaskCreate, projectId: number) => Promise<unknown>;
   readonly currentProjectId?: number | null;
   readonly initialStatus?: TaskStatus;
+}
+
+export interface CreateTaskFormHandle {
+  open: () => void;
 }
 
 interface FormState {
@@ -55,11 +59,14 @@ function createInitialState(initialStatus: TaskStatus): FormState {
   };
 }
 
-export function CreateTaskForm({
-  onCreate,
-  currentProjectId,
-  initialStatus = "Todo",
-}: Props) {
+export const CreateTaskForm = forwardRef<CreateTaskFormHandle, Props>(function CreateTaskForm(
+  {
+    onCreate,
+    currentProjectId,
+    initialStatus = "Todo",
+  },
+  ref,
+) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => createInitialState(initialStatus));
   const [loading, setLoading] = useState(false);
@@ -83,6 +90,14 @@ export function CreateTaskForm({
       metaApi.getDepartments().then(setDepartments).catch(console.error);
     }
   }, [open]);
+
+  useImperativeHandle(ref, () => ({
+    open: () => {
+      setError("");
+      setForm(createInitialState(initialStatus));
+      setOpen(true);
+    },
+  }), [initialStatus]);
 
   // If a project is selected globally, load and pre-select its cascade
   useEffect(() => {
@@ -569,4 +584,4 @@ export function CreateTaskForm({
       </div>
     </div>
   );
-}
+});

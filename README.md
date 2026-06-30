@@ -6,8 +6,39 @@ An enterprise-grade Task Management application with a decoupled architectural d
 
 ## 🏗️ Project Architecture
 
-The codebase follows clean architecture principles, emphasizing decoupling, dependency inversion, and strict layer boundaries.
+The codebase is organized as a monorepo with separate deployable services for the API and the workspace UI. The backend owns authoritative workflow behavior, permissions, ranking, notifications, and seeding. The frontend owns routing, server-state caching, and the operational workspace experience.
 
+```text
+project-tracker/
+├── backend/
+│   ├── alembic/                    # Database migrations; production schema is Alembic-managed
+│   ├── app/
+│   │   ├── api/v1/                 # Auth, projects, canonical issues, board, comments, watchers, notifications
+│   │   ├── core/                   # Settings, security, environment validation
+│   │   ├── db/                     # SQLAlchemy session, models, repositories, seed data
+│   │   ├── schemas/                # Pydantic request/response contracts
+│   │   └── services/               # Issue workflow, notification generation, release demo seeding
+│   └── tests/                      # Unit, integration, route, migration, and seed regression tests
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/                    # Axios clients for backend contracts
+│   │   ├── app/                    # Query client, theme provider, shared issue appearance tokens
+│   │   ├── components/             # Reusable workspace UI and board primitives
+│   │   ├── features/               # Issues, board cache, notifications, watchers, and detail panels
+│   │   ├── layouts/                # Workspace and project shells
+│   │   ├── routes/                 # React Router pages for inbox, my issues, project board/issues/calendar
+│   │   └── types/                  # Frontend DTOs aligned with backend schemas
+│   └── tests/                      # Vitest component and interaction coverage
+│
+├── docs/                           # Deployment, demo accounts, rollback, CI, and test-environment guides
+├── docker-compose.yml              # Local PostgreSQL and development support services
+└── .github/workflows/              # Build, deploy, rollback, cleanup, and quality gates
+```
+
+Production uses PostgreSQL/Supabase through `DATABASE_URL`; local automated tests use an isolated PostgreSQL test database through `TEST_DATABASE_URL`. The application does not create tables during runtime startup: schema changes flow through Alembic migrations.
+
+<!-- Legacy architecture snapshot retained only for diff history.
 ```
 project-tracker/
 ├── backend/                       # FastAPI Backend Application
@@ -49,6 +80,7 @@ project-tracker/
 │
 └── docker-compose.yml             # Orchestrates multi-container local stack
 ```
+-->
 
 ---
 
