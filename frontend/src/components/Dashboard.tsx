@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { metaApi } from "../api/meta";
-import { taskApi } from "../api/tasks";
-import type { ProjectMeta } from "../types/meta";
+import React from "react";
+import { useAuth } from "../contexts/useAuth";
 import type { Task } from "../types/task";
+import { useMyIssuesQuery } from "../features/issues/hooks/useMyIssuesQuery";
+import { useProjectsQuery } from "../features/projects/hooks/useProjectsQuery";
 
 interface DashboardProps {
   onSelectProject: (projectId: number) => void;
@@ -12,44 +11,12 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskClick }) => {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<ProjectMeta[]>([]);
-  const [myTasks, setMyTasks] = useState<Task[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
-  const [loadingTasks, setLoadingTasks] = useState(true);
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const data = await metaApi.getProjects();
-        setProjects(data);
-      } catch (err) {
-        console.error("Failed to fetch projects", err);
-      } finally {
-        setLoadingProjects(false);
-      }
-    };
-
-    const fetchMyTasks = async () => {
-      if (!user) return;
-      try {
-        const data = await taskApi.getAll({
-          assignee_id: user.id,
-          page: 1,
-          size: 10,
-          sort_by: "due_date",
-          sort_order: "asc",
-        });
-        setMyTasks(data.items);
-      } catch (err) {
-        console.error("Failed to fetch my tasks", err);
-      } finally {
-        setLoadingTasks(false);
-      }
-    };
-
-    fetchProjects();
-    fetchMyTasks();
-  }, [user]);
+  const projectsQuery = useProjectsQuery();
+  const myIssuesQuery = useMyIssuesQuery(user?.id);
+  const projects = projectsQuery.data ?? [];
+  const myTasks = myIssuesQuery.data?.items ?? [];
+  const loadingProjects = projectsQuery.isLoading;
+  const loadingTasks = myIssuesQuery.isLoading;
 
   const PRIORITY_COLORS: Record<string, string> = {
     Low: "bg-slate-50 text-slate-600 border-slate-200/60",
@@ -118,7 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskCli
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">
-                        WDD-{task.id}
+                        {task.key}
                       </span>
                       <span className="text-sm font-semibold text-slate-800 truncate group-hover:text-blue-600 transition-colors">
                         {task.title}

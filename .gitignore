@@ -12,11 +12,33 @@ backend/__pycache__/
 # ======================
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
+.tmp/
+.runtime/
+backend/.runtime/
 
 # ======================
 # Environment Variables
 # ======================
 .env
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ======================
+# Logs and Coverage
+# ======================
+*.log
+coverage/
+htmlcov/
+.coverage*
 
 # ======================
 # IDE
@@ -35,4 +57,9 @@ Thumbs.db
 # ======================
 *.db
 *.sqlite
-*.sqlite3
+*.sqlite3
+backend/.pytest_cache/
+.ruff_cache/
+backend/.mypy_cache/
+frontend/.vite/
+.vercel/

@@ -2,9 +2,16 @@
 
 import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from app.schemas.common import PaginatedResponse
 
@@ -15,7 +22,6 @@ class TaskStatus(str, Enum):
     TODO = "Todo"
     IN_PROGRESS = "In Progress"
     REVIEW = "Review"
-    BLOCKED = "Blocked"
     DONE = "Done"
 
 
@@ -69,8 +75,11 @@ class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(default="", min_length=0)
     status: TaskStatus = TaskStatus.TODO
+    is_blocked: bool = False
+    blocked_reason: Optional[str] = None
     priority: TaskPriority = TaskPriority.MEDIUM
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None
     due_date: datetime.date = Field(...)
@@ -90,6 +99,13 @@ class TaskCreate(BaseModel):
     def strip_title(cls, v: object) -> object:
         if isinstance(v, str):
             v = v.strip()
+        return v
+
+    @field_validator("blocked_reason", mode="before")
+    @classmethod
+    def strip_blocked_reason(cls, v: object) -> object:
+        if isinstance(v, str):
+            v = v.strip() or None
         return v
 
     @field_validator("story_points")
@@ -115,6 +131,19 @@ class TaskCreate(BaseModel):
             raise ValueError("tags may contain at most 4 items")
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_legacy_blocked_status(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if data.get("status") == "Blocked":
+            updated = dict(data)
+            updated["status"] = TaskStatus.IN_PROGRESS.value
+            updated["is_blocked"] = True
+            updated.setdefault("blocked_reason", "Migrated from legacy blocked status")
+            return updated
+        return data
+
 
 # ── TaskUpdate ─────────────────────────────────────────────────────────────────
 
@@ -125,8 +154,11 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
+    is_blocked: Optional[bool] = None
+    blocked_reason: Optional[str] = None
     priority: Optional[TaskPriority] = None
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None
     due_date: Optional[datetime.date] = None
@@ -147,6 +179,13 @@ class TaskUpdate(BaseModel):
     def strip_title(cls, v: object) -> object:
         if isinstance(v, str):
             v = v.strip()
+        return v
+
+    @field_validator("blocked_reason", mode="before")
+    @classmethod
+    def strip_blocked_reason(cls, v: object) -> object:
+        if isinstance(v, str):
+            v = v.strip() or None
         return v
 
     @field_validator("story_points")
@@ -172,6 +211,19 @@ class TaskUpdate(BaseModel):
             raise ValueError("tags may contain at most 4 items")
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_legacy_blocked_status(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if data.get("status") == "Blocked":
+            updated = dict(data)
+            updated["status"] = TaskStatus.IN_PROGRESS.value
+            updated["is_blocked"] = True
+            updated.setdefault("blocked_reason", "Migrated from legacy blocked status")
+            return updated
+        return data
+
 
 # ── TaskResponse ───────────────────────────────────────────────────────────────
 
@@ -182,17 +234,25 @@ class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    number: int
+    rank: int
+    version: int
+    key: Optional[str] = None
+    project_key: Optional[str] = None
     project_id: int
     sprint_id: Optional[int] = None
     epic_id: Optional[int] = None
     title: str
     description: str
     status: str
+    is_blocked: bool
+    blocked_reason: Optional[str] = None
     priority: str
     quarter: str
     risk_level: str
     customer_impact: str
     assignee_id: Optional[int] = None
+    parent_id: Optional[int] = None
     created_by_id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -227,3 +287,22 @@ class TaskResponse(BaseModel):
 # ── TaskListResponse (pagination envelope) ─────────────────────────────────────
 
 TaskListResponse = PaginatedResponse[TaskResponse]
+
+
+class BoardColumnResponse(BaseModel):
+    status: TaskStatus
+    items: List[TaskResponse]
+    total_count: int
+    next_after: Optional[int] = None
+    next_before: Optional[int] = None
+
+
+class ProjectBoardResponse(BaseModel):
+    columns: Dict[TaskStatus, BoardColumnResponse]
+
+
+class IssueMoveRequest(BaseModel):
+    status: TaskStatus
+    before_issue_id: Optional[int] = None
+    after_issue_id: Optional[int] = None
+    expected_version: Optional[int] = Field(default=None, ge=1)

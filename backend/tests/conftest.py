@@ -2,24 +2,62 @@
 
 import os
 import sys
+import uuid
+from pathlib import Path
+
+# Ensure backend root is on sys.path before importing test support modules.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from tests.support.db_env import (
+    assert_safe_test_database_url,
+    derive_admin_database_url,
+    ensure_database_exists,
+    load_supabase_database_url,
+    load_test_database_url,
+    test_mode_allows_remote_database,
+)
 
-# Ensure backend root is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+TEST_SCHEMA = f"test_{uuid.uuid4().hex}"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+ENV_FILES = (BACKEND_ROOT / ".env", PROJECT_ROOT / ".env")
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+
+DATABASE_URL = load_test_database_url(os.environ, ENV_FILES)
+ALLOW_REMOTE_TEST_DATABASE = test_mode_allows_remote_database()
+PARSED_TEST_DATABASE_URL = assert_safe_test_database_url(
+    DATABASE_URL,
+    allow_remote=ALLOW_REMOTE_TEST_DATABASE,
+)
+SUPABASE_DATABASE_URL = load_supabase_database_url(os.environ, ENV_FILES)
+TEST_DATABASE_ADMIN_URL = derive_admin_database_url(
+    DATABASE_URL,
+    os.environ.get("TEST_DATABASE_ADMIN_URL"),
+)
+
+if not ALLOW_REMOTE_TEST_DATABASE:
+    ensure_database_exists(DATABASE_URL, TEST_DATABASE_ADMIN_URL)
+
+os.environ["DATABASE_URL"] = DATABASE_URL
+os.environ["DATABASE_SCHEMA"] = TEST_SCHEMA
+
+bootstrap_engine = create_engine(DATABASE_URL)
+with bootstrap_engine.begin() as connection:
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{TEST_SCHEMA}"'))
+bootstrap_engine.dispose()
+
+from app.db.base import Base  # noqa: E402
+from app.db.session import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 # ── In-memory SQLite for tests ────────────────────────────────────────────────
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL,
+    connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -104,7 +142,7 @@ def seed_test_hierarchy(db):
     }
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setup_db():
     """Create all tables before each test, drop them after."""
     import app.db.models  # noqa: F401
@@ -112,6 +150,15 @@ def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_schema():
+    yield
+    cleanup_engine = create_engine(DATABASE_URL)
+    with cleanup_engine.begin() as connection:
+        connection.execute(text(f'DROP SCHEMA IF EXISTS "{TEST_SCHEMA}" CASCADE'))
+    cleanup_engine.dispose()
 
 
 @pytest.fixture

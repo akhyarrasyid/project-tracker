@@ -1,4 +1,4 @@
-"""Unit tests for all 5 enums and their values."""
+"""Unit tests for task-related enums and their values."""
 
 import pytest
 
@@ -12,8 +12,8 @@ from app.schemas.task import (
 
 
 class TestTaskStatus:
-    def test_has_five_values(self):
-        assert len(TaskStatus) == 5
+    def test_has_four_values(self):
+        assert len(TaskStatus) == 4
 
     def test_todo_value(self):
         assert TaskStatus.TODO == "Todo"
@@ -23,9 +23,6 @@ class TestTaskStatus:
 
     def test_review_value(self):
         assert TaskStatus.REVIEW == "Review"
-
-    def test_blocked_value(self):
-        assert TaskStatus.BLOCKED == "Blocked"
 
     def test_done_value(self):
         assert TaskStatus.DONE == "Done"

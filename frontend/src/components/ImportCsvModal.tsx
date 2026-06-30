@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { API_BASE_URL } from "../api/client";
 
 interface ValidationError {
   row: number;
@@ -33,7 +34,7 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
         headers["Authorization"] = `Bearer ${token}`;
       }
       
-      const response = await fetch("http://127.0.0.1:8000/api/v1/tasks/import-template", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/tasks/import-template`, {
         headers,
       });
 
@@ -50,8 +51,10 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setGeneralError(err.message || "Gagal mengunduh template");
+    } catch (error) {
+      setGeneralError(
+        error instanceof Error ? error.message : "Gagal mengunduh template"
+      );
     }
   };
 
@@ -110,7 +113,7 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/v1/tasks/import-csv", {
+      const response = await fetch(`${API_BASE_URL}/api/v1/tasks/import-csv`, {
         method: "POST",
         headers,
         body: formData,
@@ -136,7 +139,7 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
       } else {
         setGeneralError(data.detail || "Gagal mengimpor CSV. Silakan periksa format file.");
       }
-    } catch (err: any) {
+    } catch {
       setGeneralError("Terjadi kesalahan koneksi saat mengunggah file.");
     } finally {
       setLoading(false);

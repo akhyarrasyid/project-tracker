@@ -1,0 +1,280 @@
+{
+  "comment_templates": [
+    "Need one more pass on {title}.{mention}",
+    "Please validate the operational impact before we close this.{mention}",
+    "I added the latest notes and linked the relevant context for {title}.{mention}",
+    "We should land this before the next rollout window.{mention}",
+    "Tracking one more follow-up before this is safe to mark done.{mention}"
+  ],
+  "attachment_templates": [
+    { "filename_template": "{project}-{number}-notes.txt", "mime_type": "text/plain", "min_size": 2048, "max_size": 12000 },
+    { "filename_template": "{project}-{number}-evidence.csv", "mime_type": "text/csv", "min_size": 4096, "max_size": 54000 },
+    { "filename_template": "{project}-{number}-timeline.md", "mime_type": "text/markdown", "min_size": 1800, "max_size": 9000 }
+  ],
+  "activity_templates": [
+    { "action": "updated", "field": "priority", "old_value": "Medium", "new_value": "High" },
+    { "action": "updated", "field": "status", "old_value": "Todo", "new_value": "In Progress" },
+    { "action": "updated", "field": "due_date", "old_value": "2026-06-28", "new_value": "2026-07-03" },
+    { "action": "updated", "field": "blocked_reason", "old_value": null, "new_value": "Waiting for external input" }
+  ],
+  "notification_templates": [
+    { "type": "issue_assigned", "title": "{actor} assigned you to {issue}" },
+    { "type": "issue_status_changed", "title": "{issue} moved to {status}" },
+    { "type": "issue_commented", "title": "{actor} commented on {issue}" },
+    { "type": "issue_blocked", "title": "{issue} was marked blocked" }
+  ],
+  "domains": {
+    "payments": {
+      "title_templates": [
+        "Review {workflow} handling for {object}",
+        "Stabilize {surface} fallback during {workflow}",
+        "Audit {metric} drift for {object}",
+        "Refine {workflow} visibility in {surface}"
+      ],
+      "descriptions": [
+        "Coordinate with stakeholders to improve {workflow} coverage in {project} for {object}.",
+        "Reduce manual follow-up and make the operational path more predictable for {workflow} in {project}.",
+        "Document the edge cases and land the guardrails required for {object} before the next release window."
+      ],
+      "objects": ["merchant callback retries", "refund reconciliation", "settlement mismatches", "wallet top-up controls"],
+      "surfaces": ["merchant dashboard", "operations queue", "reconciliation report", "incident review"],
+      "workflows": ["duplicate callback suppression", "manual replay", "settlement close", "refund approval"],
+      "metrics": ["duplicate capture rate", "callback latency", "mismatch backlog", "manual review volume"],
+      "tags": ["payments", "customer-facing", "incident", "settlement"]
+    },
+    "identity": {
+      "title_templates": [
+        "Investigate {workflow} regression on {surface}",
+        "Tighten {object} controls for {workflow}",
+        "Reduce {metric} noise in {surface}",
+        "Document fallback for {workflow} on {surface}"
+      ],
+      "descriptions": [
+        "This issue closes the remaining gaps in {project} so {workflow} can survive edge cases around {object}.",
+        "We need a cleaner operational path in {project} for {workflow} before broader rollout.",
+        "Capture the latest findings and align the fix path for {object} with support and security stakeholders."
+      ],
+      "objects": ["session rotation", "device verification", "account recovery", "refresh token revocation"],
+      "surfaces": ["Safari", "mobile auth sheet", "admin console", "identity service"],
+      "workflows": ["session refresh", "login recovery", "token validation", "abuse review"],
+      "metrics": ["logout incidents", "token mismatch count", "re-auth rate", "session churn"],
+      "tags": ["auth", "security", "customer-facing", "session"]
+    },
+    "engineering": {
+      "title_templates": [
+        "Shorten {workflow} lead time for {surface}",
+        "Automate {object} checks in {surface}",
+        "Reduce {metric} drift across {workflow}",
+        "Clarify ownership for {workflow} in {surface}"
+      ],
+      "descriptions": [
+        "{project} still relies on too much manual effort around {workflow}; this issue closes that gap.",
+        "Land the minimum automation needed so {object} becomes visible and repeatable within {project}.",
+        "This change should make {workflow} easier to reason about for teams touching {project}."
+      ],
+      "objects": ["schema drift", "release notes", "test matrix", "local environment parity"],
+      "surfaces": ["CI pipeline", "release checklist", "developer portal", "repo automation"],
+      "workflows": ["merge validation", "preview deployment", "test flake triage", "release branch prep"],
+      "metrics": ["pipeline wait time", "flake rate", "review latency", "merge retries"],
+      "tags": ["platform", "ci", "automation", "internal"]
+    },
+    "mobile": {
+      "title_templates": [
+        "Improve {workflow} behavior in {surface}",
+        "Audit {metric} variance for {object}",
+        "Tighten {object} fallback on {surface}",
+        "Reduce release risk around {workflow}"
+      ],
+      "descriptions": [
+        "{project} needs a cleaner release path around {workflow}, especially for {object}.",
+        "This task captures the operational fixes required before the next mobile rollout.",
+        "Land the last round of polish so {workflow} behaves predictably across production devices."
+      ],
+      "objects": ["offline queue", "deep-link handoff", "session restore", "runtime permission prompts"],
+      "surfaces": ["Android release", "iOS sheet", "mobile home", "push flow"],
+      "workflows": ["background sync", "login recovery", "release review", "crash reproduction"],
+      "metrics": ["crash-free sessions", "launch latency", "retry volume", "rollout error rate"],
+      "tags": ["mobile", "performance", "customer-facing", "accessibility"]
+    },
+    "experience": {
+      "title_templates": [
+        "Standardize {object} behavior across {surface}",
+        "Reduce {metric} inconsistency in {surface}",
+        "Close the gap in {workflow} coverage for {object}",
+        "Harden {workflow} ergonomics in {surface}"
+      ],
+      "descriptions": [
+        "The current flow in {project} still has inconsistent behavior around {object}; this issue aligns it.",
+        "This change improves dense operational workflows by making {workflow} more predictable.",
+        "Ship the last round of cleanup needed before design review sign-off."
+      ],
+      "objects": ["toolbar density", "keyboard focus", "loading state", "metadata hierarchy"],
+      "surfaces": ["issue board", "detail panel", "workspace sidebar", "saved view header"],
+      "workflows": ["bulk actions", "inline editing", "selection", "empty-state recovery"],
+      "metrics": ["misclick rate", "focus loss", "layout shift", "panel open latency"],
+      "tags": ["design-system", "accessibility", "internal"]
+    },
+    "customer_experience": {
+      "title_templates": [
+        "Improve {workflow} clarity in {surface}",
+        "Reduce {metric} for {object}",
+        "Document {workflow} handling for {object}",
+        "Stabilize {surface} coverage for {workflow}"
+      ],
+      "descriptions": [
+        "{project} still has gaps in operational clarity around {workflow}; this issue closes the next chunk.",
+        "Support teams need a stronger baseline for {object} before this can scale safely.",
+        "Capture the customer-facing decision path so the team can act consistently under pressure."
+      ],
+      "objects": ["knowledge article routing", "account context", "escalation note quality", "customer history stitching"],
+      "surfaces": ["support queue", "case detail", "customer profile", "help center"],
+      "workflows": ["handoff", "escalation", "triage", "case resolution"],
+      "metrics": ["reopen rate", "handoff lag", "macro usage", "queue aging"],
+      "tags": ["support", "knowledge-base", "customer-facing", "customer-data"]
+    },
+    "data": {
+      "title_templates": [
+        "Review {workflow} quality for {object}",
+        "Reduce {metric} mismatches in {surface}",
+        "Harden {surface} around {workflow}",
+        "Backfill {object} coverage for {workflow}"
+      ],
+      "descriptions": [
+        "The current model in {project} needs more guardrails around {workflow} and {object}.",
+        "This issue improves the operational trust of {surface} so teams can act on it with less manual checking.",
+        "Add the minimum controls needed so {workflow} remains stable under heavier reporting usage."
+      ],
+      "objects": ["warehouse freshness", "case attribution", "experiment cohorts", "customer profile joins"],
+      "surfaces": ["dbt model", "dashboard feed", "warehouse sync", "quality monitor"],
+      "workflows": ["incremental load", "late-arriving event repair", "backfill", "metric certification"],
+      "metrics": ["freshness lag", "null ratio", "join mismatch count", "failed runs"],
+      "tags": ["customer-data", "etl", "reporting", "internal"]
+    },
+    "legal": {
+      "title_templates": [
+        "Finalize {workflow} package for {object}",
+        "Review {surface} wording for {object}",
+        "Track {metric} risk within {workflow}",
+        "Prepare {surface} follow-up for {workflow}"
+      ],
+      "descriptions": [
+        "{project} needs a clearer legal path for {workflow} before the next external milestone.",
+        "Capture the open review items around {object} so the compliance queue stays current.",
+        "This issue keeps the regulator and customer-facing language aligned for the next release window."
+      ],
+      "objects": ["retention policy", "customer addendum", "regulator response", "privacy notice"],
+      "surfaces": ["approval packet", "policy draft", "review checklist", "evidence folder"],
+      "workflows": ["legal review", "exception handling", "customer negotiation", "regulator follow-up"],
+      "metrics": ["approval age", "open exceptions", "contract turnaround", "evidence backlog"],
+      "tags": ["privacy", "contracts", "regulatory", "internal"]
+    },
+    "finance": {
+      "title_templates": [
+        "Close {workflow} gaps for {object}",
+        "Review {metric} drift in {surface}",
+        "Document {workflow} controls for {surface}",
+        "Reduce manual work in {workflow}"
+      ],
+      "descriptions": [
+        "{project} still needs better controls around {workflow} so month-end work remains predictable.",
+        "This issue tightens the finance process around {object} and reduces manual rework.",
+        "Land the remaining cleanup before the next forecast or close cycle."
+      ],
+      "objects": ["reconciliation batch", "vendor approval path", "budget variance review", "invoice exception"],
+      "surfaces": ["month-end checklist", "vendor intake queue", "forecast model", "approval report"],
+      "workflows": ["close review", "purchase approval", "reconciliation", "invoice follow-up"],
+      "metrics": ["manual adjustments", "approval lead time", "variance count", "exception backlog"],
+      "tags": ["finance", "reporting", "internal", "billing"]
+    },
+    "operations": {
+      "title_templates": [
+        "Reduce {metric} in {surface}",
+        "Clarify {workflow} handoff for {object}",
+        "Stabilize {surface} behavior during {workflow}",
+        "Document fallback for {workflow} in {surface}"
+      ],
+      "descriptions": [
+        "{project} still has noisy operational handoffs around {workflow}; this issue tightens the path for {object}.",
+        "This work reduces manual coordination and makes {surface} calmer under pressure.",
+        "Capture the missing operating rule so {workflow} can continue without side-channel follow-up."
+      ],
+      "objects": ["weekend backlog", "escalation handoff", "incident command notes", "readiness review"],
+      "surfaces": ["operations queue", "incident board", "SLA dashboard", "support handoff"],
+      "workflows": ["escalation routing", "incident follow-up", "backlog review", "handoff"],
+      "metrics": ["queue aging", "handoff lag", "escalation reopen rate", "SLA breach count"],
+      "tags": ["support", "sla", "incident", "internal"]
+    },
+    "revenue_ops": {
+      "title_templates": [
+        "Stabilize {workflow} in {surface}",
+        "Reduce {metric} gaps for {object}",
+        "Improve {surface} readiness around {workflow}",
+        "Align {workflow} handling for {object}"
+      ],
+      "descriptions": [
+        "{project} needs a more reliable operational path around {workflow} for {object}.",
+        "Capture the latest edge cases so teams touching {surface} can move faster with less manual correction.",
+        "This change improves customer handoff quality while keeping the internal queue calmer."
+      ],
+      "objects": ["renewal handoff", "entitlement sync", "lead routing", "invoice ownership"],
+      "surfaces": ["CRM queue", "renewal tracker", "billing handoff", "customer system sync"],
+      "workflows": ["lead assignment", "renewal prep", "entitlement handoff", "invoice dispute routing"],
+      "metrics": ["handoff lag", "assignment mismatch", "renewal aging", "sync retries"],
+      "tags": ["crm", "billing", "renewal", "customer-facing"]
+    },
+    "people": {
+      "title_templates": [
+        "Improve {workflow} clarity for {object}",
+        "Reduce {metric} in {surface}",
+        "Document {workflow} baseline for {surface}",
+        "Stabilize {object} follow-up during {workflow}"
+      ],
+      "descriptions": [
+        "{project} needs a stronger operational baseline around {workflow} before the next planning cycle.",
+        "This issue improves internal throughput while keeping the employee-facing experience calmer.",
+        "Capture the missing handoffs around {object} so teams can work without extra backchannel coordination."
+      ],
+      "objects": ["interview scheduling", "offer approval", "headcount intake", "manager planning packet"],
+      "surfaces": ["hiring board", "capacity model", "approval workflow", "onboarding queue"],
+      "workflows": ["candidate review", "offer sign-off", "headcount planning", "backfill approval"],
+      "metrics": ["time to approve", "stale req count", "open interviewer load", "plan variance"],
+      "tags": ["hiring", "headcount", "internal"]
+    },
+    "workplace": {
+      "title_templates": [
+        "Automate {workflow} for {object}",
+        "Reduce {metric} in {surface}",
+        "Clarify {surface} ownership for {workflow}",
+        "Improve {workflow} recovery in {surface}"
+      ],
+      "descriptions": [
+        "{project} can remove a meaningful amount of manual work by tightening {workflow}.",
+        "This issue improves employee trust by making {surface} more predictable under normal operational load.",
+        "Capture the workflow edge cases around {object} before the next internal rollout."
+      ],
+      "objects": ["employee request intake", "equipment approval", "workspace access", "internal workflow routing"],
+      "surfaces": ["approval inbox", "internal portal", "employee dashboard", "request queue"],
+      "workflows": ["request routing", "onboarding approval", "equipment provisioning", "employee escalation"],
+      "metrics": ["approval cycle time", "routing failures", "queue aging", "manual retries"],
+      "tags": ["automation", "internal", "sla"]
+    },
+    "security": {
+      "title_templates": [
+        "Review {workflow} handling for {object}",
+        "Reduce {metric} in {surface}",
+        "Harden {surface} around {workflow}",
+        "Track remediation for {object}"
+      ],
+      "descriptions": [
+        "{project} needs better control coverage around {workflow} before the next audit or customer commitment.",
+        "This issue closes the remaining operational risk around {object} and creates a cleaner remediation path.",
+        "Capture the ownership and follow-up details required to keep this security workflow healthy."
+      ],
+      "objects": ["control exception", "patch backlog", "evidence request", "identity audit finding"],
+      "surfaces": ["audit queue", "scanner review", "trust portal", "control dashboard"],
+      "workflows": ["evidence collection", "patch validation", "exception review", "incident follow-up"],
+      "metrics": ["open criticals", "exception age", "evidence turnaround", "false positive count"],
+      "tags": ["security", "trust", "audit", "incident"]
+    }
+  }
+}

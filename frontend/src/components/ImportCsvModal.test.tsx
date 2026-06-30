@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ImportCsvModal } from "./ImportCsvModal";
+import { API_BASE_URL } from "../api/client";
 import "@testing-library/jest-dom";
 
 describe("ImportCsvModal Component", () => {
@@ -48,7 +49,7 @@ describe("ImportCsvModal Component", () => {
     fireEvent.click(downloadBtn);
     
     expect(window.fetch).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/v1/tasks/import-template",
+      `${API_BASE_URL}/api/v1/tasks/import-template`,
       expect.any(Object)
     );
   });

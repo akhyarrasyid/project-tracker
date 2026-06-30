@@ -51,6 +51,21 @@ class TaskRepository:
         )
 
     @staticmethod
+    def get_by_issue_key(
+        db: Session, project_key: str, issue_number: int
+    ) -> Optional[Task]:
+        return (
+            db.query(Task)
+            .join(Project, Task.project_id == Project.id)
+            .filter(
+                Project.key == project_key,
+                Task.number == issue_number,
+                Task.deleted_at.is_(None),
+            )
+            .first()
+        )
+
+    @staticmethod
     def _apply_joins(q, filters: Any):
         joined_team = False
         if (
@@ -83,7 +98,14 @@ class TaskRepository:
             q = q.filter(Task.project_id.in_(allowed_project_ids))
         if filters.status:
             statuses = [s.strip() for s in filters.status.split(",")]
-            q = q.filter(Task.status.in_(statuses))
+            blocked_requested = "Blocked" in statuses
+            primary_statuses = [status for status in statuses if status != "Blocked"]
+            if blocked_requested and primary_statuses:
+                q = q.filter(or_(Task.is_blocked.is_(True), Task.status.in_(primary_statuses)))
+            elif blocked_requested:
+                q = q.filter(Task.is_blocked.is_(True))
+            else:
+                q = q.filter(Task.status.in_(primary_statuses))
         if filters.priority:
             priorities = [p.strip() for p in filters.priority.split(",")]
             q = q.filter(Task.priority.in_(priorities))

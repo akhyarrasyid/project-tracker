@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    BigInteger,
     SmallInteger,
     String,
     Text,
@@ -35,6 +36,12 @@ class Task(Base):
         "User", foreign_keys="Task.assignee_id", lazy="joined"
     )
     creator = relationship("User", foreign_keys="Task.created_by_id", lazy="joined")
+    parent = relationship(
+        "Task",
+        remote_side="Task.id",
+        foreign_keys="Task.parent_id",
+        lazy="selectin",
+    )
 
     @property
     def department(self) -> Optional[str]:
@@ -60,6 +67,16 @@ class Task(Base):
     def sprint(self) -> Optional[str]:
         return self.sprint_relation.name if self.sprint_relation else None
 
+    @property
+    def project_key(self) -> Optional[str]:
+        return self.project.key if self.project else None
+
+    @property
+    def key(self) -> Optional[str]:
+        if self.project_key is None or self.number is None:
+            return None
+        return f"{self.project_key}-{self.number}"
+
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True, autoincrement=True
     )
@@ -75,11 +92,21 @@ class Task(Base):
     epic_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("epics.id", ondelete=ONDELETE_SET_NULL), nullable=True
     )
+    number: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rank: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1024)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("tasks.id", ondelete=ONDELETE_SET_NULL), nullable=True
+    )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
 
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="Todo")
+    is_blocked: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default="false"
+    )
+    blocked_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     priority: Mapped[str] = mapped_column(String(50), nullable=False, default="Medium")
     quarter: Mapped[str] = mapped_column(String(5), nullable=False, default="Q1")
     risk_level: Mapped[str] = mapped_column(String(10), nullable=False, default="Low")
@@ -142,7 +169,7 @@ class Task(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('Todo', 'In Progress', 'Review', 'Blocked', 'Done')",
+            "status IN ('Todo', 'In Progress', 'Review', 'Done')",
             name="ck_tasks_status",
         ),
         CheckConstraint(
@@ -171,6 +198,14 @@ class Task(Base):
         ),
         Index("ix_tasks_status", "status"),
         Index("ix_tasks_priority", "priority"),
+        Index("ix_tasks_is_blocked", "is_blocked"),
         Index("ix_tasks_due_date", "due_date"),
         Index("ix_tasks_created_at", "created_at"),
+        Index("ix_tasks_project_status_rank", "project_id", "status", "rank"),
+        Index("ix_tasks_parent_id", "parent_id"),
+        CheckConstraint("version >= 1", name="ck_tasks_version_positive"),
+        CheckConstraint(
+            "parent_id IS NULL OR parent_id <> id",
+            name="ck_tasks_parent_not_self",
+        ),
     )

@@ -1,0 +1,164 @@
+{
+  "name": "release_demo",
+  "description": "Fast, demo-ready release seed with rich cross-functional data for MVP 1-3 happy path walkthroughs.",
+  "random_seed": 20260630,
+  "anchor_date": "2026-06-30",
+  "project_keys": [
+    "PAY",
+    "IAM",
+    "SRE",
+    "MOB",
+    "FRD",
+    "PRV",
+    "REV",
+    "SUP",
+    "TAL",
+    "INT"
+  ],
+  "scenario_files": [
+    "payment_callback_incident",
+    "authentication_hardening",
+    "privacy_compliance_review",
+    "support_sla_recovery",
+    "finance_month_end",
+    "talent_hiring_program"
+  ],
+  "team_allowlist": [
+    "Payments Platform",
+    "Identity Platform",
+    "Service Reliability",
+    "Mobile Platform",
+    "Compliance Programs",
+    "Revenue Systems",
+    "Support Enablement",
+    "Talent Operations",
+    "Internal Tools",
+    "Financial Planning",
+    "Security Operations",
+    "Analytics Engineering",
+    "Trust Platform",
+    "Workforce Planning",
+    "Workplace Automation"
+  ],
+  "demo_accounts": [
+    {
+      "username": "admin",
+      "full_name": "Demo Admin",
+      "team": "Internal Tools",
+      "role": "admin",
+      "memberships": [
+        { "project_key": "PAY", "project_role": "OWNER" },
+        { "project_key": "IAM", "project_role": "OWNER" },
+        { "project_key": "SRE", "project_role": "OWNER" },
+        { "project_key": "MOB", "project_role": "OWNER" },
+        { "project_key": "FRD", "project_role": "OWNER" },
+        { "project_key": "PRV", "project_role": "OWNER" },
+        { "project_key": "REV", "project_role": "OWNER" },
+        { "project_key": "SUP", "project_role": "OWNER" },
+        { "project_key": "TAL", "project_role": "OWNER" },
+        { "project_key": "INT", "project_role": "OWNER" }
+      ]
+    },
+    {
+      "username": "payment_owner",
+      "full_name": "Payment Owner",
+      "team": "Payments Platform",
+      "role": "worker",
+      "memberships": [
+        { "project_key": "PAY", "project_role": "OWNER" },
+        { "project_key": "FRD", "project_role": "MEMBER" },
+        { "project_key": "IAM", "project_role": "VIEWER" }
+      ]
+    },
+    {
+      "username": "engineering_member",
+      "full_name": "Engineering Member",
+      "team": "Service Reliability",
+      "role": "worker",
+      "memberships": [
+        { "project_key": "PAY", "project_role": "MEMBER" },
+        { "project_key": "IAM", "project_role": "MEMBER" },
+        { "project_key": "SRE", "project_role": "MEMBER" },
+        { "project_key": "MOB", "project_role": "VIEWER" }
+      ]
+    },
+    {
+      "username": "legal_member",
+      "full_name": "Legal Member",
+      "team": "Compliance Programs",
+      "role": "worker",
+      "memberships": [
+        { "project_key": "PRV", "project_role": "MEMBER" },
+        { "project_key": "PAY", "project_role": "VIEWER" },
+        { "project_key": "REV", "project_role": "VIEWER" }
+      ]
+    },
+    {
+      "username": "viewer_user",
+      "full_name": "Viewer User",
+      "team": "Internal Tools",
+      "role": "worker",
+      "memberships": [
+        { "project_key": "PAY", "project_role": "VIEWER" },
+        { "project_key": "IAM", "project_role": "VIEWER" },
+        { "project_key": "SUP", "project_role": "VIEWER" },
+        { "project_key": "INT", "project_role": "VIEWER" }
+      ]
+    }
+  ],
+  "targets": {
+    "users": 40,
+    "issues": 220,
+    "sprints": 30,
+    "epics": 30,
+    "labels": 44,
+    "comments": 560,
+    "activity_logs": 1200,
+    "watchers": 650,
+    "inactive_watchers": 60,
+    "notifications": 780,
+    "attachments": 80,
+    "parent_links": 32,
+    "dependencies": 72
+  },
+  "generation": {
+    "min_team_size": 2,
+    "max_team_size": 4,
+    "team_size_spread": 1,
+    "members_per_project": 4,
+    "cross_functional_members_per_team": 1,
+    "viewers_per_project": 1,
+    "sprints_per_project": 3,
+    "epics_per_project": 3,
+    "max_labels_per_issue": 3,
+    "blocked_ratio": 0.12,
+    "mention_ratio": 0.18,
+    "read_notification_ratio": 0.56,
+    "max_watchers_per_issue": 5,
+    "max_children_per_project": 3,
+    "status_weights": {
+      "Todo": 29,
+      "In Progress": 32,
+      "Review": 16,
+      "Done": 23
+    },
+    "priority_weights": {
+      "Low": 12,
+      "Medium": 39,
+      "High": 34,
+      "Critical": 15
+    },
+    "risk_weights": {
+      "Low": 28,
+      "Medium": 47,
+      "High": 25
+    },
+    "customer_impact_weights": {
+      "None": 6,
+      "Low": 18,
+      "Medium": 34,
+      "High": 29,
+      "Internal": 13
+    }
+  }
+}

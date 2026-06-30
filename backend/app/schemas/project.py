@@ -18,3 +18,14 @@ class ProjectResponse(BaseModel):
     description: Optional[str] = None
     team_id: int
     status: str
+
+
+class ProjectSummaryResponse(BaseModel):
+    total_issues: int
+    done_issues: int
+    active_issues: int
+    issue_progress_percent: int
+    point_progress_percent: int
+    blocked_count: int
+    overdue_count: int
+    at_risk_count: int

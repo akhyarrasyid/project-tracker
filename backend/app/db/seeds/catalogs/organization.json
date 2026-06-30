@@ -1,0 +1,90 @@
+{
+  "departments": [
+    {
+      "name": "Engineering",
+      "description": "Application engineering, platform delivery, and shared product infrastructure.",
+      "teams": [
+        { "name": "Payments Platform", "description": "Owns callback integrity, settlement workflows, and merchant payment APIs." },
+        { "name": "Identity Platform", "description": "Owns authentication, sessions, and customer identity controls." },
+        { "name": "Developer Experience", "description": "Owns CI, internal tooling, and engineering workflow ergonomics." },
+        { "name": "Mobile Platform", "description": "Owns shared mobile foundations and release safety." }
+      ]
+    },
+    {
+      "name": "Security",
+      "description": "Security operations, vulnerability response, and trust platform controls.",
+      "teams": [
+        { "name": "Security Operations", "description": "Operates incident response, audit evidence, and control monitoring." },
+        { "name": "Vulnerability Management", "description": "Owns scanning, patch backlog, and remediation programs." },
+        { "name": "Trust Platform", "description": "Owns customer-facing trust commitments and assurance workflows." }
+      ]
+    },
+    {
+      "name": "Legal",
+      "description": "Regulatory, privacy, and commercial legal operations.",
+      "teams": [
+        { "name": "Compliance Programs", "description": "Runs privacy reviews, regulator submissions, and compliance roadmaps." },
+        { "name": "Contracts Review", "description": "Owns customer contracts, addenda, and renewal approvals." }
+      ]
+    },
+    {
+      "name": "Finance",
+      "description": "Finance planning, accounting operations, and procurement workflow execution.",
+      "teams": [
+        { "name": "Financial Planning", "description": "Owns forecasting, cost guardrails, and month-end readiness." },
+        { "name": "Procurement Operations", "description": "Owns vendor intake, approvals, and spend controls." },
+        { "name": "Revenue Systems", "description": "Owns revenue tooling, billing controls, and invoice data quality." }
+      ]
+    },
+    {
+      "name": "Operations",
+      "description": "Service operations, reliability, and cross-functional execution programs.",
+      "teams": [
+        { "name": "Support Enablement", "description": "Owns support queue process design, routing, and macro quality." },
+        { "name": "Service Reliability", "description": "Owns internal operational SLAs and incident workflow reliability." },
+        { "name": "Business Operations", "description": "Owns enterprise process initiatives and operational readiness." }
+      ]
+    },
+    {
+      "name": "Customer Experience",
+      "description": "Customer operations systems, journey analytics, and frontline tooling.",
+      "teams": [
+        { "name": "Customer Success Systems", "description": "Owns customer lifecycle systems and case routing automation." },
+        { "name": "Support Operations", "description": "Owns frontline process standards and escalation health." }
+      ]
+    },
+    {
+      "name": "Data",
+      "description": "Data platform, design systems analytics, and experimentation support.",
+      "teams": [
+        { "name": "Data Platform", "description": "Owns warehouse pipelines, quality controls, and governed datasets." },
+        { "name": "Analytics Engineering", "description": "Owns operational metrics models and experiment reporting." }
+      ]
+    },
+    {
+      "name": "People",
+      "description": "Talent, workforce, and internal people systems.",
+      "teams": [
+        { "name": "Talent Operations", "description": "Owns recruiting workflow execution and hiring program delivery." },
+        { "name": "Workforce Planning", "description": "Owns capacity plans, org modeling, and hiring prioritization." }
+      ]
+    },
+    {
+      "name": "Revenue Operations",
+      "description": "Revenue tooling, CRM health, and go-to-market workflow management.",
+      "teams": [
+        { "name": "Growth Systems", "description": "Owns lead routing, experiment launch support, and campaign operations." },
+        { "name": "Billing Operations", "description": "Owns invoice support, entitlement handoff, and renewal operations." }
+      ]
+    },
+    {
+      "name": "Workplace",
+      "description": "Internal systems, automations, and enterprise workplace experience.",
+      "teams": [
+        { "name": "Internal Tools", "description": "Owns employee-facing applications and workflow tooling." },
+        { "name": "Workplace Automation", "description": "Owns automation for approvals, onboarding, and employee requests." },
+        { "name": "Project Operations", "description": "Owns workspace administration and portfolio setup." }
+      ]
+    }
+  ]
+}

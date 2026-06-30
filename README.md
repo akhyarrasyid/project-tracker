@@ -59,7 +59,7 @@ project-tracker/
 * **SQLAlchemy 2.0:** Modern ORM mapping database records.
 * **Pydantic v2:** Fast data validation and serialization.
 * **Uv:** Ultra-fast Python package installer and runner.
-* **PostgreSQL / SQLite:** Supports Postgres for production/local containers, and SQLite for lightweight local runs/testing.
+* **PostgreSQL:** Uses PostgreSQL for local development, local testing, and production-style verification.
 
 ### Frontend
 * **React 18:** Modern UI view library.
@@ -138,10 +138,12 @@ High-quality code metrics are enforced through comprehensive unit and integratio
 ### Backend Tests (Pytest)
 Run all backend tests with coverage reporting:
 ```bash
-cd backend
-uv run pytest --cov=app --cov-report=term-missing tests/
+docker compose up -d db
+backend\.venv\Scripts\python.exe -m pytest backend\tests -q
 ```
 *Backend test coverage is maintained at **99%** overall statement coverage.*
+
+For local-vs-Supabase test environment separation, see [docs/backend-test-environments.md](docs/backend-test-environments.md).
 
 ### Frontend Tests (Vitest)
 Run all frontend tests with coverage reporting:

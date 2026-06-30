@@ -28,6 +28,5 @@ class ActivityLoggerService:
             new_value=new_val,
         )
         db.add(log_entry)
-        db.commit()
-        db.refresh(log_entry)
+        db.flush()
         return log_entry

@@ -2,7 +2,7 @@ import datetime
 from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -38,3 +38,4 @@ class Comment(Base):
     deleted_by_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    author = relationship("User", foreign_keys="Comment.author_id", lazy="joined")

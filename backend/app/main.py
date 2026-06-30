@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import app.db.models  # noqa: F401
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,8 +8,6 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.exceptions import NotFoundException, ValidationException
-from app.db import models  # noqa: F401
-from app.db.base import Base
 from app.db.session import engine
 
 
@@ -18,12 +17,11 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_TITLE,
         version=settings.APP_VERSION,
-        description="Enterprise Project Tracker API — 26-field task management with pagination, filtering, and search.",
+        description="Enterprise Project Tracker API for operational issue management.",
         docs_url="/docs",
         redoc_url="/redoc",
     )
 
-    # ── Middleware ────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -32,7 +30,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ── Exception handlers ────────────────────────────────────────────────────
     @app.exception_handler(NotFoundException)
     async def not_found_handler(request: Request, exc: NotFoundException):
         return JSONResponse(
@@ -55,13 +52,8 @@ def create_app() -> FastAPI:
             },
         )
 
-    # ── DB init (dev / single-process) ────────────────────────────────────────
-    Base.metadata.create_all(bind=engine)
-
-    # ── Routes ───────────────────────────────────────────────────────────────
     app.include_router(api_router)
 
-    # ── Health endpoints ──────────────────────────────────────────────────────
     @app.get("/health", tags=["ops"], summary="Liveness check")
     async def health():
         return {"status": "healthy", "version": settings.APP_VERSION}
@@ -77,7 +69,11 @@ def create_app() -> FastAPI:
         except Exception as exc:
             return JSONResponse(
                 status_code=503,
-                content={"status": "unavailable", "detail": str(exc)},
+                content={
+                    "status": "unavailable",
+                    "detail": "Database connection failed",
+                    "error_type": exc.__class__.__name__,
+                },
             )
 
     return app

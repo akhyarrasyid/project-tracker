@@ -348,7 +348,7 @@ async def import_csv(
             continue
 
         # 4. Status Validation
-        if status_str not in ["Todo", "In Progress", "Review", "Blocked", "Done"]:
+        if status_str not in ["Todo", "In Progress", "Review", "Done", "Blocked"]:
             errors.append(
                 {
                     "row": idx,
@@ -497,12 +497,12 @@ async def import_csv(
     try:
         for t_data in tasks_to_create:
             from app.schemas.task import TaskCreate as SchemaTaskCreate
-            from app.schemas.task import TaskPriority, TaskStatus
+            from app.schemas.task import TaskPriority
 
             t_create = SchemaTaskCreate(
                 title=cast(str, t_data["title"]),
                 description=cast(str, t_data["description"]),
-                status=TaskStatus(cast(str, t_data["status"])),
+                status=cast(str, t_data["status"]),
                 priority=TaskPriority(cast(str, t_data["priority"])),
                 assignee_id=cast(Optional[int], t_data["assignee_id"]),
                 due_date=cast(datetime.date, t_data["due_date"]),
@@ -605,8 +605,20 @@ def delete_task(
     if task is None:
         raise NotFoundException("Task", task_id)
 
-    # Project authorization: must be member/owner of project
-    check_project_access(db, current_user, task.project_id, min_role="MEMBER")
+    # Project authorization: viewers cannot delete; members are restricted.
+    _, membership = check_project_access(
+        db, current_user, task.project_id, min_role="MEMBER"
+    )
+    if (
+        current_user.role != "admin"
+        and membership is not None
+        and membership.project_role == "MEMBER"
+        and (task.created_by_id != current_user.id or task.status == "Done")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Members may only delete their own unfinished issues",
+        )
     TaskService.soft_delete_task(db, task, current_user.id)
     return None
 

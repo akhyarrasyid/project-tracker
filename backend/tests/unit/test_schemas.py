@@ -76,13 +76,15 @@ class TestTaskCreateStatus:
         t = make(status="Review")
         assert t.status == TaskStatus.REVIEW
 
-    def test_valid_status_blocked(self):
-        t = make(status="Blocked")
-        assert t.status == TaskStatus.BLOCKED
-
     def test_valid_status_done(self):
         t = make(status="Done")
         assert t.status == TaskStatus.DONE
+
+    def test_legacy_blocked_status_maps_to_flag(self):
+        t = make(status="Blocked")
+        assert t.status == TaskStatus.IN_PROGRESS
+        assert t.is_blocked is True
+        assert t.blocked_reason == "Migrated from legacy blocked status"
 
     def test_invalid_status_raises(self):
         with pytest.raises(ValidationError):
@@ -187,6 +189,12 @@ class TestTaskUpdatePartial:
     def test_update_invalid_status_raises(self):
         with pytest.raises(ValidationError):
             TaskUpdate(status="Invalid")
+
+    def test_update_legacy_blocked_status_maps_to_flag(self):
+        u = TaskUpdate(status="Blocked")
+        assert u.status == TaskStatus.IN_PROGRESS
+        assert u.is_blocked is True
+        assert u.blocked_reason == "Migrated from legacy blocked status"
 
     def test_update_empty_title_raises(self):
         with pytest.raises(ValidationError):

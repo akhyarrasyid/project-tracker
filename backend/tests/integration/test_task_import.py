@@ -4,11 +4,9 @@ from unittest.mock import patch
 from app.main import app
 from app.db.session import get_db
 from app.core.security import get_current_user
-from app.db.models.user import User
 from app.db.models.team import Team
 from app.db.models.department import Department
 from app.db.models.project import Project
-from app.db.models.project_member import ProjectMember
 from tests.conftest import seed_test_hierarchy
 
 @pytest.fixture
@@ -58,7 +56,7 @@ def test_import_csv_success_worker(import_client, db_session):
 
     csv_data = (
         "project_key,title,description,status,priority,due_date,story_points,estimated_hours,assignee_email,tags\n"
-        f"PRJ,Worker Task,Worker description,In Progress,High,,5,12,,backend\n"
+        "PRJ,Worker Task,Worker description,In Progress,High,,5,12,,backend\n"
     )
 
     files = {"file": ("tasks.csv", csv_data, "text/csv")}
@@ -113,17 +111,17 @@ def test_import_csv_validation_errors(import_client, db_session):
 
     csv_data = (
         "project_key,title,description,status,priority,due_date,story_points,estimated_hours,assignee_email,tags\n"
-        f"PRJ,,This is description,Todo,Medium,2026-07-20,3,8,,backend,api\n"  # Missing title
-        f"PRJ,Task 2,Desc,InvalidStatus,Medium,2026-07-20,3,8,,\n"             # Invalid status
-        f"PRJ,Task 3,Desc,Todo,InvalidPriority,2026-07-20,3,8,,\n"            # Invalid priority
-        f"PRJ,Task 4,Desc,Todo,Medium,invalid-date,3,8,,\n"                   # Invalid date format
-        f"PRJ,Task 5,Desc,Todo,Medium,2026-07-20,99,8,,\n"                    # Invalid story points (value)
-        f"PRJ,Task 6,Desc,Todo,Medium,2026-07-20,not-a-number,8,,\n"           # Invalid story points (type)
-        f"PRJ,Task 7,Desc,Todo,Medium,2026-07-20,3,0,,\n"                     # Invalid estimated hours (< 1)
-        f"PRJ,Task 8,Desc,Todo,Medium,2026-07-20,3,not-a-number,,\n"           # Invalid estimated hours (type)
-        f"PRJ,Task 9,Desc,Todo,Medium,2026-07-20,3,8,nonexistent@example.com,\n" # Invalid assignee email
-        f"PRJ,Task 10,Desc,Todo,Medium,2026-07-20,3,8,,\"t1,t2,t3,t4,t5\"\n"   # Too many tags (> 4)
-        f"INVALID_KEY,Task 11,Desc,Todo,Medium,2026-07-20,3,8,,\n"             # Invalid project key
+        "PRJ,,This is description,Todo,Medium,2026-07-20,3,8,,backend,api\n"  # Missing title
+        "PRJ,Task 2,Desc,InvalidStatus,Medium,2026-07-20,3,8,,\n"             # Invalid status
+        "PRJ,Task 3,Desc,Todo,InvalidPriority,2026-07-20,3,8,,\n"            # Invalid priority
+        "PRJ,Task 4,Desc,Todo,Medium,invalid-date,3,8,,\n"                   # Invalid date format
+        "PRJ,Task 5,Desc,Todo,Medium,2026-07-20,99,8,,\n"                    # Invalid story points (value)
+        "PRJ,Task 6,Desc,Todo,Medium,2026-07-20,not-a-number,8,,\n"           # Invalid story points (type)
+        "PRJ,Task 7,Desc,Todo,Medium,2026-07-20,3,0,,\n"                     # Invalid estimated hours (< 1)
+        "PRJ,Task 8,Desc,Todo,Medium,2026-07-20,3,not-a-number,,\n"           # Invalid estimated hours (type)
+        "PRJ,Task 9,Desc,Todo,Medium,2026-07-20,3,8,nonexistent@example.com,\n" # Invalid assignee email
+        "PRJ,Task 10,Desc,Todo,Medium,2026-07-20,3,8,,\"t1,t2,t3,t4,t5\"\n"   # Too many tags (> 4)
+        "INVALID_KEY,Task 11,Desc,Todo,Medium,2026-07-20,3,8,,\n"             # Invalid project key
     )
 
     files = {"file": ("tasks.csv", csv_data, "text/csv")}
@@ -136,7 +134,6 @@ def test_import_csv_validation_errors(import_client, db_session):
     assert len(errors) == 11
     
     rows = [e["row"] for e in errors]
-    fields = [e["field"] for e in errors]
     
     assert 2 in rows  # missing title
     assert 3 in rows  # invalid status
@@ -157,7 +154,7 @@ def test_import_csv_db_save_error(import_client, db_session):
 
     csv_data = (
         "project_key,title,description,status,priority,due_date,story_points,estimated_hours,assignee_email,tags\n"
-        f"PRJ,Rollback Task,Desc,Todo,Medium,2026-07-20,3,8,,\n"
+        "PRJ,Rollback Task,Desc,Todo,Medium,2026-07-20,3,8,,\n"
     )
 
     files = {"file": ("tasks.csv", csv_data, "text/csv")}
@@ -198,7 +195,7 @@ def test_import_csv_department_boundary_worker(import_client, db_session):
     # Try importing tasks for the Finance project
     csv_data = (
         "project_key,title,description,status,priority,due_date,story_points,estimated_hours,assignee_email,tags\n"
-        f"FIN,Unauthorized Task,This should fail,Todo,Medium,2026-07-20,3,8,,\n"
+        "FIN,Unauthorized Task,This should fail,Todo,Medium,2026-07-20,3,8,,\n"
     )
 
     files = {"file": ("tasks.csv", csv_data, "text/csv")}
