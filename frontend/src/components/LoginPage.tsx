@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getBuildLabel } from "../app/build-info";
 import { useAuth } from "../contexts/useAuth";
 
 export const LoginPage: React.FC = () => {
@@ -7,6 +8,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const buildLabel = getBuildLabel();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +107,9 @@ export const LoginPage: React.FC = () => {
               {loading ? "Masuk..." : "Masuk ke Workspace"}
             </button>
           </form>
+          <div className="text-center text-[11px] text-slate-500" data-testid="build-identity">
+            Build {buildLabel}
+          </div>
         </div>
       </div>
     </div>

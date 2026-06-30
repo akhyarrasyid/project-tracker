@@ -1,6 +1,7 @@
 import { Bell, Home, LogOut, Search, UserCircle2 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { getBuildLabel } from "../app/build-info";
 import { LoginPage } from "../components/LoginPage";
 import { useAuth } from "../contexts/useAuth";
 import { useUnreadNotificationCountQuery } from "../features/notifications/hooks/useUnreadNotificationCountQuery";
@@ -14,6 +15,7 @@ export function WorkspaceLayout() {
   const { user, loading, logout } = useAuth();
   const projectsQuery = useProjectsQuery();
   const unreadCountQuery = useUnreadNotificationCountQuery();
+  const buildLabel = getBuildLabel();
 
   if (loading) {
     return (
@@ -127,6 +129,9 @@ export function WorkspaceLayout() {
             <LogOut className="h-4 w-4" />
             Keluar
           </button>
+          <div className="mt-3 text-[11px] text-neutral-500" data-testid="build-identity">
+            Build {buildLabel}
+          </div>
         </div>
       </aside>
 
