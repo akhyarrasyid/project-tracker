@@ -32,6 +32,23 @@ def test_docs_route_is_available(client):
     assert resp.status_code == 200
 
 
+def test_cors_allows_production_frontend_origin(client):
+    resp = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://technical-test-project-tracker.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert (
+        resp.headers.get("access-control-allow-origin")
+        == "https://technical-test-project-tracker.vercel.app"
+    )
+
+
 def test_readiness_error(client, monkeypatch):
     def mock_connect():
         raise Exception("DB Down")

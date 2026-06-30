@@ -5,6 +5,13 @@ from pydantic_settings import BaseSettings
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = BACKEND_DIR.parent
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "https://technical-test-project-tracker.vercel.app",
+]
+VERCEL_FRONTEND_ORIGIN_REGEX = (
+    r"^https://technical-test-project-tracker(?:-[a-z0-9-]+)*\.vercel\.app$"
+)
 
 
 class Settings(BaseSettings):
@@ -14,7 +21,7 @@ class Settings(BaseSettings):
     DATABASE_SCHEMA: str | None = None
     ENVIRONMENT: str = "development"
     DEBUG: str = "false"
-    CORS_ORIGINS: list[str] = ["*"]
+    CORS_ORIGINS: list[str] = DEFAULT_CORS_ORIGINS.copy()
     APP_TITLE: str = "Project Tracker API"
     APP_VERSION: str = "1.0.0"
 
@@ -37,6 +44,19 @@ class Settings(BaseSettings):
                 "Pooler URL for Vercel production."
             )
         return self
+
+    @property
+    def effective_cors_origins(self) -> list[str]:
+        origins = [origin.strip() for origin in self.CORS_ORIGINS if origin.strip()]
+        merged: list[str] = []
+        for origin in [*DEFAULT_CORS_ORIGINS, *origins]:
+            if origin not in merged:
+                merged.append(origin)
+        return merged
+
+    @property
+    def vercel_frontend_origin_regex(self) -> str:
+        return VERCEL_FRONTEND_ORIGIN_REGEX
 
 
 settings = Settings()
