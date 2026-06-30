@@ -263,6 +263,7 @@ def test_release_demo_seed_writes_local_credential_file(monkeypatch):
     if credential_path.exists():
         credential_path.unlink()
 
+    monkeypatch.chdir(Path("backend"))
     monkeypatch.setenv("DEMO_SEED_PASSWORD", "local-demo-password")
     monkeypatch.setenv("VITE_API_URL", "https://technical-test-project-tracker-api.vercel.app")
     monkeypatch.setenv("DEMO_FRONTEND_URL", "https://technical-test-project-tracker.vercel.app")

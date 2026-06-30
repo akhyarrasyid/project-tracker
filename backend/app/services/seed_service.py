@@ -41,12 +41,13 @@ PROFILE_DIR = SEEDS_ROOT / "profiles"
 CATALOG_DIR = SEEDS_ROOT / "catalogs"
 SCENARIO_DIR = SEEDS_ROOT / "scenarios"
 LEGACY_SEED_FILE = SEEDS_ROOT / "project_tracker_seed.json"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 DEFAULT_PROFILE = "smoke"
 DEFAULT_ANCHOR_DATE = dt.date(2026, 6, 30)
 DEFAULT_PASSWORD = "password123"
 DEMO_SEED_PASSWORD_ENV = "DEMO_SEED_PASSWORD"
-DEMO_ACCOUNTS_LOCAL_FILE = Path("backend/.runtime/demo-accounts.local.md")
+DEMO_ACCOUNTS_LOCAL_FILE = REPO_ROOT / "backend" / ".runtime" / "demo-accounts.local.md"
 VALID_PROJECT_MEMBER_ROLES = {"OWNER", "MEMBER", "VIEWER"}
 ACTIVE_WATCHER_STATE = {"is_watching": True, "unwatched_at": None}
 
