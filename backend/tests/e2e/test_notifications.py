@@ -382,3 +382,32 @@ class TestWatchersApi:
             .count()
         )
         assert outsider_count == 0
+
+    def test_status_change_notification_uses_human_readable_status_values(
+        self, client, db_session, make_task, as_user
+    ):
+        seed = seed_test_hierarchy(db_session)
+        issue = make_task(title="Readable status notification", assignee="worker")
+
+        as_user(seed["admin"])
+        response = client.patch(
+            f"/api/v1/issues/{issue['id']}",
+            json={
+                "status": "Review",
+                "expected_version": issue["version"],
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        notification = (
+            db_session.query(Notification)
+            .filter(
+                Notification.recipient_id == seed["worker"].id,
+                Notification.type == "issue_status_changed",
+                Notification.issue_id == issue["id"],
+            )
+            .order_by(Notification.id.desc())
+            .first()
+        )
+        assert notification is not None
+        assert notification.title == f"{issue['key']} moved from Todo to Review"
