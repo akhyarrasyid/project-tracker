@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -226,6 +227,10 @@ class TaskService:
         changes: dict[str, tuple[Any, Any]] = {}
         for field, new_value in updates.items():
             old_value = getattr(task, field)
+            if isinstance(old_value, Enum):
+                old_value = old_value.value
+            if isinstance(new_value, Enum):
+                new_value = new_value.value
             if old_value != new_value:
                 changes[field] = (old_value, new_value)
         return changes
