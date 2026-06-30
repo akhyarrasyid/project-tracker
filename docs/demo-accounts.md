@@ -1,27 +1,21 @@
 # Demo Accounts
 
-The `release_demo` seed creates these usernames for product walkthroughs:
+Profile `release_demo` menyediakan akun berikut:
 
-- `admin`
-- `payment_owner`
-- `engineering_member`
-- `legal_member`
-- `viewer_user`
+| Username | Peran | Kegunaan Demo |
+|---|---|---|
+| `admin` | Global Admin | Mengakses seluruh project dan fitur administrasi |
+| `payment_owner` | Project Owner | Mengelola Payment Platform dan flow project owner |
+| `engineering_member` | Member | Mengerjakan issue, comment, watcher, dan Inbox |
+| `legal_member` | Legal/Compliance Member | Menguji project lintas fungsi dan permission |
+| `viewer_user` | Viewer | Menguji akses read-only dan larangan mutasi |
 
-The shared demo password is not stored in Git.
+Password tidak disimpan di Git.
 
-For local or remote seeding, provide it through:
+Password akun demo berasal dari environment variable:
 
 ```text
 DEMO_SEED_PASSWORD
 ```
 
-Remote seeding requires `DEMO_SEED_PASSWORD` to be set before `release_demo` can be written.
-
-Example shell setup:
-
-```powershell
-$env:DEMO_SEED_PASSWORD = "set-this-outside-git"
-```
-
-The seed service hashes the password through the existing auth flow before storing it.
+Semua akun demo menggunakan shared password yang sama ketika profile `release_demo` dijalankan.

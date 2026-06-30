@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.core.security import verify_password
 from app.db.models.activity_log import ActivityLog
 from app.db.models.attachment import Attachment
 from app.db.models.comment import Comment
@@ -214,3 +215,68 @@ def test_cmd_dry_run_writes_summary_report():
     assert report_path.exists()
     assert "smoke" in report_path.read_text(encoding="utf-8")
     report_path.unlink()
+
+
+def test_release_demo_reseed_rotates_demo_passwords_only(monkeypatch, db_session):
+    monkeypatch.setenv("DEMO_SEED_PASSWORD", "first-demo-password")
+    seed_service.cmd_seed("release_demo")
+
+    tracked_usernames = {
+        "admin",
+        "payment_owner",
+        "engineering_member",
+        "legal_member",
+        "viewer_user",
+    }
+    demo_hashes_before = {
+        user.username: user.hashed_password
+        for user in db_session.query(User)
+        .filter(User.username.in_(tracked_usernames))
+        .all()
+    }
+    non_demo_user = (
+        db_session.query(User)
+        .filter(~User.username.in_(tracked_usernames))
+        .order_by(User.username.asc())
+        .first()
+    )
+    assert non_demo_user is not None
+    non_demo_user_id = non_demo_user.id
+    non_demo_hash_before = non_demo_user.hashed_password
+
+    monkeypatch.setenv("DEMO_SEED_PASSWORD", "second-demo-password")
+    seed_service.cmd_seed("release_demo")
+
+    for username in tracked_usernames:
+        user = db_session.query(User).filter(User.username == username).one()
+        assert user.hashed_password != demo_hashes_before[username]
+        assert verify_password("second-demo-password", user.hashed_password)
+
+    unchanged_non_demo = (
+        db_session.query(User).filter(User.id == non_demo_user_id).one()
+    )
+    assert unchanged_non_demo.hashed_password == non_demo_hash_before
+
+
+def test_release_demo_seed_writes_local_credential_file(monkeypatch):
+    credential_path = seed_service.DEMO_ACCOUNTS_LOCAL_FILE
+    if credential_path.exists():
+        credential_path.unlink()
+
+    monkeypatch.setenv("DEMO_SEED_PASSWORD", "local-demo-password")
+    monkeypatch.setenv("VITE_API_URL", "https://technical-test-project-tracker-api.vercel.app")
+    monkeypatch.setenv("DEMO_FRONTEND_URL", "https://technical-test-project-tracker.vercel.app")
+
+    seed_service.cmd_seed("release_demo")
+
+    assert credential_path.exists()
+    contents = credential_path.read_text(encoding="utf-8")
+    assert "admin" in contents
+    assert "payment_owner" in contents
+    assert "engineering_member" in contents
+    assert "legal_member" in contents
+    assert "viewer_user" in contents
+    assert "https://technical-test-project-tracker.vercel.app" in contents
+    assert "https://technical-test-project-tracker-api.vercel.app/docs" in contents
+
+    credential_path.unlink()

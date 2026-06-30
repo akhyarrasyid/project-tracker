@@ -46,6 +46,7 @@ DEFAULT_PROFILE = "smoke"
 DEFAULT_ANCHOR_DATE = dt.date(2026, 6, 30)
 DEFAULT_PASSWORD = "password123"
 DEMO_SEED_PASSWORD_ENV = "DEMO_SEED_PASSWORD"
+DEMO_ACCOUNTS_LOCAL_FILE = Path("backend/.runtime/demo-accounts.local.md")
 VALID_PROJECT_MEMBER_ROLES = {"OWNER", "MEMBER", "VIEWER"}
 ACTIVE_WATCHER_STATE = {"is_watching": True, "unwatched_at": None}
 
@@ -131,6 +132,59 @@ def _ensure_seed_allowed(profile_name: str) -> None:
 
 def _seed_password() -> str:
     return os.environ.get(DEMO_SEED_PASSWORD_ENV) or DEFAULT_PASSWORD
+
+
+def _demo_urls() -> dict[str, str]:
+    backend_url = os.environ.get("VITE_API_URL") or "http://localhost:8000"
+    frontend_url = os.environ.get("DEMO_FRONTEND_URL") or "http://localhost:5173"
+    return {
+        "frontend": frontend_url.rstrip("/"),
+        "backend_api": backend_url.rstrip("/"),
+        "api_docs": f"{backend_url.rstrip('/')}/docs",
+    }
+
+
+def _write_demo_accounts_local_file(profile: dict[str, Any]) -> None:
+    demo_accounts = profile.get("demo_accounts", [])
+    if not demo_accounts:
+        return
+
+    password = _seed_password()
+    urls = _demo_urls()
+    DEMO_ACCOUNTS_LOCAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Local Demo Credentials",
+        "",
+        "Generated from the latest `release_demo` seed.",
+        "",
+        "| Username | Password |",
+        "|---|---|",
+    ]
+    lines.extend(
+        f"| `{account['username']}` | `{password}` |" for account in demo_accounts
+    )
+    lines.extend(
+        [
+            "",
+            "Application URLs:",
+            "",
+            f"- Frontend: `{urls['frontend']}`",
+            f"- Backend API: `{urls['backend_api']}`",
+            f"- API Docs: `{urls['api_docs']}`",
+            "",
+        ]
+    )
+    DEMO_ACCOUNTS_LOCAL_FILE.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _log_demo_accounts_ready(profile: dict[str, Any]) -> None:
+    demo_accounts = profile.get("demo_accounts", [])
+    if not demo_accounts:
+        return
+    log.info("Demo accounts ready:")
+    for account in demo_accounts:
+        log.info("- %s", account["username"])
+    log.info("Credential file: %s", DEMO_ACCOUNTS_LOCAL_FILE.as_posix())
 
 
 def _parse_anchor_date(value: str | None) -> dt.date:
@@ -415,6 +469,7 @@ class EnterpriseSeedBuilder:
         *,
         role: str = "worker",
         explicit_username: str | None = None,
+        is_demo_account: bool = False,
     ) -> dict[str, Any]:
         username = explicit_username or _slugify(full_name)
         suffix = 1
@@ -430,6 +485,7 @@ class EnterpriseSeedBuilder:
             "team_name": team_name,
             "hashed_password": get_password_hash(_seed_password()),
             "is_active": True,
+            "is_demo_account": is_demo_account,
         }
         self.user_by_username[username] = user
         self.usernames_by_team[team_name].append(username)
@@ -462,6 +518,7 @@ class EnterpriseSeedBuilder:
                 account["team"],
                 role=account.get("role", "worker"),
                 explicit_username=account["username"],
+                is_demo_account=True,
             )
 
         for team_name, roster in self.people_catalog["anchor_staff"].items():
@@ -1505,7 +1562,8 @@ class DbSeedContext:
             team = self.teams[(record["department_name"], record["team_name"])]
             user.email = record["email"]
             user.full_name = record["full_name"]
-            user.hashed_password = record["hashed_password"]
+            if record.get("is_demo_account"):
+                user.hashed_password = record["hashed_password"]
             user.role = record["role"]
             user.team_id = team.id
             user.is_active = record["is_active"]
@@ -1556,6 +1614,19 @@ def _seed_departments_and_teams(db: Session, ctx: DbSeedContext, data: dict[str,
 def _seed_users(ctx: DbSeedContext, users: list[dict[str, Any]]) -> None:
     for user in users:
         ctx.get_or_create_user(user)
+
+
+def _refresh_demo_account_passwords(
+    ctx: DbSeedContext,
+    users: list[dict[str, Any]],
+) -> None:
+    for user_record in users:
+        if not user_record.get("is_demo_account"):
+            continue
+        user = ctx.users.get(user_record["username"])
+        if user is None:
+            continue
+        user.hashed_password = user_record["hashed_password"]
 
 
 def _prune_legacy_bootstrap(db: Session, keep_project_keys: set[str]) -> None:
@@ -1996,6 +2067,7 @@ def cmd_seed(
     report_path: str | None = None,
 ) -> None:
     _ensure_seed_allowed(profile_name)
+    profile = _load_json(_profile_path(profile_name))
     data = _build_profile_dataset(
         profile_name,
         anchor_date=anchor_date,
@@ -2009,6 +2081,7 @@ def cmd_seed(
         team_department_lookup = _seed_departments_and_teams(db, ctx, data)
         users = _normalise_users(data, team_department_lookup)
         _seed_users(ctx, users)
+        _refresh_demo_account_passwords(ctx, users)
         for project in data["projects"]:
             project["department_name"] = team_department_lookup[project["team_name"]]
         _seed_projects(ctx, data)
@@ -2025,6 +2098,8 @@ def cmd_seed(
         _recalculate_task_counters(ctx)
         db.commit()
         _write_report(report_path, {"mode": "seed", "summary": data["summary"]})
+        _write_demo_accounts_local_file(profile)
+        _log_demo_accounts_ready(profile)
         log.info("Seeded profile '%s': %s", profile_name, data["summary"])
     except Exception:
         db.rollback()
