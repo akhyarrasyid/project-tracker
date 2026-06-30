@@ -64,6 +64,21 @@ function getLatestIssue(error: unknown) {
   return detail?.latest_issue ?? null;
 }
 
+function getRequestErrorMessage(error: unknown, fallback: string) {
+  const response = (error as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
+  const detail = response?.data?.detail;
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (response?.status === 403) {
+    return "Akun ini tidak punya izin untuk menghapus issue.";
+  }
+  if (response?.status === 404) {
+    return "Issue ini sudah tidak tersedia atau sudah dihapus.";
+  }
+  return fallback;
+}
+
 export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
   const issueQuery = useIssueQuery(issueKey);
   const issue = issueQuery.data;
@@ -75,6 +90,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [titleTouched, setTitleTouched] = useState(false);
   const saveResetRef = useRef<number | null>(null);
@@ -249,6 +265,9 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
       setShowDeleteDialog(false);
       onClose?.();
     },
+    onError: (error) => {
+      setDeleteError(getRequestErrorMessage(error, "Issue belum bisa dihapus. Coba lagi."));
+    },
   });
 
   const commentMutation = useMutation({
@@ -369,6 +388,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                     type="button"
                     onClick={() => {
                       setMenuOpen(false);
+                      setDeleteError(null);
                       setShowDeleteDialog(true);
                     }}
                     className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-500/10"
@@ -779,6 +799,11 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
               <div className="mt-2 text-sm text-neutral-600">
                 {draft.key} will be removed from active views.
               </div>
+              {deleteError ? (
+                <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {deleteError}
+                </div>
+              ) : null}
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
@@ -790,6 +815,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
                   className="rounded-md bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
                 >
                   {deleteMutation.isPending ? "Deleting..." : "Delete"}

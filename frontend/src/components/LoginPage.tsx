@@ -94,7 +94,7 @@ export const LoginPage: React.FC = () => {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin atau email Anda"
+                placeholder="username atau email Anda"
                 className="w-full rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-4 py-3 text-sm text-[color:var(--app-heading)] outline-none placeholder:text-[color:var(--app-text-faint)] focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -126,7 +126,7 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
           <div className="text-center text-[11px] text-[color:var(--app-text-faint)]" data-testid="build-identity">
-            Build {buildLabel}
+            {buildLabel}
           </div>
         </div>
       </div>

@@ -10,9 +10,10 @@ interface Props {
   readonly totalCount: number;
   readonly renderTask: (task: Task) => React.ReactNode;
   readonly extra?: React.ReactNode;
+  readonly onAddIssue?: () => void;
 }
 
-export function KanbanColumn({ status, tasks, totalCount, renderTask, extra }: Props) {
+export function KanbanColumn({ status, tasks, totalCount, renderTask, extra, onAddIssue }: Props) {
   const { isOver, setNodeRef } = useDroppable({
     id: `column:${status}`,
     data: { type: "column", status },
@@ -34,6 +35,7 @@ export function KanbanColumn({ status, tasks, totalCount, renderTask, extra }: P
         </span>
         <button
           type="button"
+          onClick={onAddIssue}
           className="ml-auto rounded-full p-1 text-[color:var(--app-text-faint)] transition hover:bg-[color:var(--app-panel-muted)] hover:text-[color:var(--app-heading)]"
           aria-label={`Add issue to ${meta.label}`}
         >

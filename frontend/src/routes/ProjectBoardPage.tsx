@@ -16,14 +16,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 
 import { queryClient } from "../app/query-client";
 import { issueApi } from "../api/issues";
 import { taskApi } from "../api/tasks";
 import { KanbanColumn } from "../components/KanbanColumn";
-import { CreateTaskForm } from "../components/CreateTaskForm";
+import { CreateTaskForm, type CreateTaskFormHandle } from "../components/CreateTaskForm";
 import { TaskCard } from "../components/TaskCard";
 import { applyOptimisticMove } from "../features/issues/board-cache";
 import { IssueDetailPanel } from "../features/issues/components/IssueDetailPanel";
@@ -109,6 +109,7 @@ export function ProjectBoardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const boardQuery = useBoardQuery(projectKey);
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const quickAddRefs = useRef<Partial<Record<TaskStatus, CreateTaskFormHandle | null>>>({});
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -222,6 +223,7 @@ export function ProjectBoardPage() {
                     status={column}
                     tasks={tasks}
                     totalCount={boardColumn?.total_count ?? 0}
+                    onAddIssue={() => quickAddRefs.current[column]?.open()}
                     renderTask={(task) => (
                       <SortableTaskCard
                         key={task.id}
@@ -235,6 +237,9 @@ export function ProjectBoardPage() {
                     )}
                     extra={
                       <CreateTaskForm
+                        ref={(handle) => {
+                          quickAddRefs.current[column] = handle;
+                        }}
                         onCreate={handleCreateTask}
                         currentProjectId={boardQuery.projectQuery.data?.id}
                         initialStatus={column}

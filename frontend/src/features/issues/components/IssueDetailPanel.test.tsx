@@ -293,4 +293,20 @@ describe("IssueDetailPanel", () => {
     });
     confirmSpy.mockRestore();
   });
+
+  it("shows delete failure feedback when the API rejects deletion", async () => {
+    vi.mocked(issueApi.deleteById).mockRejectedValueOnce({
+      response: {
+        status: 403,
+        data: { detail: "Viewer cannot delete issues" },
+      },
+    });
+    renderPanel();
+
+    fireEvent.click(await screen.findByLabelText("Issue actions"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete issue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText("Viewer cannot delete issues")).toBeInTheDocument();
+  });
 });
