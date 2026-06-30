@@ -70,6 +70,43 @@ def test_build_profile_dataset_meets_smoke_targets():
     assert summary["dependency_links"] >= 10
 
 
+def test_build_profile_dataset_enterprise_meets_acceptance_basics():
+    data = seed_service._build_profile_dataset("enterprise_demo")
+
+    owned_project_teams = {project["team_name"] for project in data["projects"]}
+    seeded_teams = {team["name"] for team in data["teams"]}
+    assert seeded_teams - owned_project_teams == set()
+
+    membership = {
+        (item["project_key"], item["username"]) for item in data["project_members"]
+    }
+    tasks_by_ref = {task["ref"]: task for task in data["tasks"]}
+    invalid_watchers = [
+        watcher
+        for watcher in data["watchers"]
+        if (tasks_by_ref[watcher["task_ref"]]["project_key"], watcher["username"])
+        not in membership
+    ]
+    assert invalid_watchers == []
+
+    project_roles = {}
+    for item in data["project_members"]:
+        project_roles.setdefault(item["project_key"], set()).add(item["project_role"])
+    assert all(
+        {"OWNER", "MEMBER", "VIEWER"}.issubset(roles)
+        for roles in project_roles.values()
+    )
+
+    notification_types = {item["type"] for item in data["notifications"]}
+    assert {
+        "issue_assigned",
+        "issue_mentioned",
+        "issue_commented",
+        "issue_status_changed",
+    }.issubset(notification_types)
+    assert all(item["action"] for item in data["notifications"])
+
+
 def test_cmd_seed_creates_cross_functional_entities(db_session):
     seed_service.cmd_seed("smoke")
 

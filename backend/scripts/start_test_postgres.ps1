@@ -12,11 +12,12 @@ $ErrorActionPreference = "Stop"
 $binDir = "C:\Program Files\PostgreSQL\18\bin"
 $initdb = Join-Path $binDir "initdb.exe"
 $pgCtl = Join-Path $binDir "pg_ctl.exe"
+$postgres = Join-Path $binDir "postgres.exe"
 $pgIsReady = Join-Path $binDir "pg_isready.exe"
 $psql = Join-Path $binDir "psql.exe"
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 
-foreach ($tool in @($initdb, $pgCtl, $pgIsReady, $psql)) {
+foreach ($tool in @($initdb, $pgCtl, $postgres, $pgIsReady, $psql)) {
   if (-not (Test-Path $tool)) {
     throw "Required PostgreSQL binary not found: $tool"
   }
@@ -26,6 +27,8 @@ $runtimePath = [System.IO.Path]::GetFullPath($RuntimeRoot)
 $dataDir = Join-Path $runtimePath "data"
 $logDir = Join-Path $runtimePath "logs"
 $logFile = Join-Path $logDir "postgres.log"
+$stdoutLog = Join-Path $logDir "postgres-stdout.log"
+$stderrLog = Join-Path $logDir "postgres-stderr.log"
 $pwFile = Join-Path $runtimePath "pwfile.txt"
 $envFile = Join-Path $runtimePath "test-env.ps1"
 
@@ -55,6 +58,39 @@ function Invoke-PgCommand {
 function Test-TestServerReady {
   $result = Invoke-PgCommand $pgIsReady @("-h", $BindAddress, "-p", "$Port", "-U", $Role, "-d", "postgres") -AllowFailure
   return $result.ExitCode -eq 0
+}
+
+function Wait-ForTestServer {
+  param(
+    [int]$Attempts = 30,
+    [int]$DelaySeconds = 1
+  )
+
+  for ($attempt = 0; $attempt -lt $Attempts; $attempt++) {
+    if (Test-TestServerReady) {
+      return $true
+    }
+    Start-Sleep -Seconds $DelaySeconds
+  }
+
+  return $false
+}
+
+function Start-TestServer {
+  $process = Start-Process `
+    -FilePath $postgres `
+    -ArgumentList "-D `"$dataDir`" -p $Port -h $BindAddress" `
+    -RedirectStandardOutput $stdoutLog `
+    -RedirectStandardError $stderrLog `
+    -WindowStyle Hidden `
+    -PassThru
+
+  if (-not (Wait-ForTestServer)) {
+    if ($process -and -not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force
+    }
+    throw "Failed to start test PostgreSQL. Check $logFile for details."
+  }
 }
 
 function Get-PortOwnerCommandLine {
@@ -112,13 +148,7 @@ if (-not (Test-Path (Join-Path $dataDir "PG_VERSION"))) {
 }
 
 if (-not (Test-TestServerReady)) {
-  Invoke-PgCommand $pgCtl @(
-    "-D", $dataDir,
-    "-l", $logFile,
-    "-w",
-    "start",
-    "-o", "-p $Port -h $BindAddress"
-  ) | Out-Null
+  Start-TestServer
 }
 
 $env:PGPASSWORD = $Password

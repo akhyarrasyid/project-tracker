@@ -25,6 +25,7 @@ from app.schemas.notification import (
     WatcherSummary,
     decode_notification_cursor,
     encode_notification_cursor,
+    notification_action_for_type,
 )
 from app.services.watcher_service import WatcherService
 
@@ -83,6 +84,9 @@ class NotificationService:
         notification = Notification(
             recipient_id=recipient_id,
             actor_id=actor_id,
+            action=notification_action_for_type(notification_type),
+            entity_type="task" if issue is not None else "system",
+            entity_id=issue.id if issue is not None else recipient_id,
             issue_id=issue.id if issue is not None else None,
             project_id=project_id,
             type=notification_type.value,

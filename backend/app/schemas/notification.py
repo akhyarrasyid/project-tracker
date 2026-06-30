@@ -21,6 +21,27 @@ class NotificationType(str, Enum):
     LEGACY_EVENT = "legacy_event"
 
 
+ACTION_BY_NOTIFICATION_TYPE: dict[str, str] = {
+    NotificationType.ISSUE_ASSIGNED.value: "assigned",
+    NotificationType.ISSUE_MENTIONED.value: "mentioned",
+    NotificationType.ISSUE_COMMENTED.value: "commented",
+    NotificationType.ISSUE_STATUS_CHANGED.value: "status_changed",
+    NotificationType.ISSUE_BLOCKED.value: "blocked",
+    NotificationType.ISSUE_UNBLOCKED.value: "unblocked",
+    NotificationType.WATCHER_ADDED.value: "watcher_added",
+    NotificationType.LEGACY_EVENT.value: "legacy_event",
+}
+
+
+def notification_action_for_type(notification_type: str | NotificationType) -> str:
+    value = (
+        notification_type.value
+        if isinstance(notification_type, NotificationType)
+        else notification_type
+    )
+    return ACTION_BY_NOTIFICATION_TYPE.get(value, "legacy_event")
+
+
 class NotificationFilter(str, Enum):
     ALL = "all"
     UNREAD = "unread"

@@ -19,6 +19,9 @@ class Notification(Base):
     actor_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    action: Mapped[str] = mapped_column(String(100), nullable=False, default="legacy_event")
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False, default="task")
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=False)
     issue_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True
     )

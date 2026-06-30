@@ -30,6 +30,7 @@ from app.db.models.team import Team
 from app.db.models.user import User
 from app.db.models.watcher import Watcher
 from app.db.session import SessionLocal
+from app.schemas.notification import notification_action_for_type
 from app.schemas.task import CustomerImpact, Quarter, RiskLevel, TaskCreate, TaskPriority, TaskStatus
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -44,6 +45,7 @@ LEGACY_SEED_FILE = SEEDS_ROOT / "project_tracker_seed.json"
 DEFAULT_PROFILE = "smoke"
 DEFAULT_ANCHOR_DATE = dt.date(2026, 6, 30)
 DEFAULT_PASSWORD = "password123"
+DEMO_SEED_PASSWORD_ENV = "DEMO_SEED_PASSWORD"
 VALID_PROJECT_MEMBER_ROLES = {"OWNER", "MEMBER", "VIEWER"}
 ACTIVE_WATCHER_STATE = {"is_watching": True, "unwatched_at": None}
 
@@ -118,6 +120,17 @@ def _ensure_seed_allowed(profile_name: str) -> None:
             profile_name,
         )
         sys.exit(1)
+
+    if not os.environ.get(DEMO_SEED_PASSWORD_ENV):
+        log.error(
+            "Remote database seed requires %s to be set for demo account passwords.",
+            DEMO_SEED_PASSWORD_ENV,
+        )
+        sys.exit(1)
+
+
+def _seed_password() -> str:
+    return os.environ.get(DEMO_SEED_PASSWORD_ENV) or DEFAULT_PASSWORD
 
 
 def _parse_anchor_date(value: str | None) -> dt.date:
@@ -252,7 +265,6 @@ def _validate_profile_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "selected_projects": [project["key"] for project in selected_projects],
         "selected_teams": sorted(
             {
-                "Project Operations",
                 *[project["team"] for project in selected_projects],
                 *[
                     cross_team
@@ -326,6 +338,29 @@ class EnterpriseSeedBuilder:
         self.number_cursor: defaultdict[str, int] = defaultdict(int)
         self.used_names: set[str] = set()
         self.generated_name_cursor = 0
+        self.activity_keys: set[tuple[str, str, str, str | None, str | None, dt.datetime]] = set()
+
+    def _selected_team_names(self) -> list[str]:
+        selected_teams = {
+            *[project["team"] for project in self.project_templates.values()],
+            *[
+                cross_team
+                for project in self.project_templates.values()
+                for cross_team in project.get("cross_functional_teams", [])
+            ],
+        }
+        allowed_teams = set(self.profile.get("team_allowlist", []))
+        if allowed_teams:
+            selected_teams = {
+                team_name
+                for team_name in selected_teams
+                if team_name in allowed_teams
+                or any(
+                    project["team"] == team_name
+                    for project in self.project_templates.values()
+                )
+            }
+        return sorted(selected_teams)
 
     def build(self) -> dict[str, Any]:
         self._build_organization()
@@ -349,15 +384,7 @@ class EnterpriseSeedBuilder:
         return self.data
 
     def _build_organization(self) -> None:
-        selected_teams = {
-            "Project Operations",
-            *[project["team"] for project in self.project_templates.values()],
-            *[
-                cross_team
-                for project in self.project_templates.values()
-                for cross_team in project.get("cross_functional_teams", [])
-            ],
-        }
+        selected_teams = set(self._selected_team_names())
         selected_departments = {
             self.team_to_department[team_name] for team_name in selected_teams
         }
@@ -381,8 +408,15 @@ class EnterpriseSeedBuilder:
                     }
                 )
 
-    def _make_user(self, full_name: str, team_name: str, *, role: str = "worker") -> dict[str, Any]:
-        username = _slugify(full_name)
+    def _make_user(
+        self,
+        full_name: str,
+        team_name: str,
+        *,
+        role: str = "worker",
+        explicit_username: str | None = None,
+    ) -> dict[str, Any]:
+        username = explicit_username or _slugify(full_name)
         suffix = 1
         base_username = username
         while username in self.user_by_username:
@@ -394,7 +428,7 @@ class EnterpriseSeedBuilder:
             "email": f"{username}@projecttracker.demo",
             "role": role,
             "team_name": team_name,
-            "hashed_password": get_password_hash(DEFAULT_PASSWORD),
+            "hashed_password": get_password_hash(_seed_password()),
             "is_active": True,
         }
         self.user_by_username[username] = user
@@ -421,15 +455,15 @@ class EnterpriseSeedBuilder:
             self._make_user(generated, team_name)
 
     def _build_users(self) -> None:
-        selected_teams = {
-            "Project Operations",
-            *[project["team"] for project in self.project_templates.values()],
-            *[
-                cross_team
-                for project in self.project_templates.values()
-                for cross_team in project.get("cross_functional_teams", [])
-            ],
-        }
+        selected_teams = set(self._selected_team_names())
+        for account in self.profile.get("demo_accounts", []):
+            self._make_user(
+                account["full_name"],
+                account["team"],
+                role=account.get("role", "worker"),
+                explicit_username=account["username"],
+            )
+
         for team_name, roster in self.people_catalog["anchor_staff"].items():
             if team_name not in selected_teams:
                 continue
@@ -437,12 +471,13 @@ class EnterpriseSeedBuilder:
                 role = "admin" if person.get("role") == "admin" else "worker"
                 self._make_user(person["full_name"], team_name, role=role)
 
-        if "Project Operations" not in self.usernames_by_team:
-            self._make_user("Administrator", "Project Operations", role="admin")
+        if not any(user["role"] == "admin" for user in self.data["users"]):
+            admin_team = sorted(selected_teams)[0]
+            self._make_user("Administrator", admin_team, role="admin")
 
         team_count = len(selected_teams)
         base_target = max(self.generation["min_team_size"], self.targets["users"] // max(team_count, 1))
-        for team_name in selected_teams:
+        for team_name in sorted(selected_teams):
             spread = self.random.randint(0, self.generation["team_size_spread"])
             self._ensure_team_headcount(
                 team_name,
@@ -472,6 +507,21 @@ class EnterpriseSeedBuilder:
         self.random.shuffle(members)
         return members[: min(count, len(members))]
 
+    def _project_member_usernames(self, project_key: str) -> set[str]:
+        return {
+            membership["username"]
+            for membership in self.data["project_members"]
+            if membership["project_key"] == project_key
+        }
+
+    def _project_member_candidates(self, project_key: str) -> list[str]:
+        return sorted(self._project_member_usernames(project_key))
+
+    def _ensure_project_participant(self, project_key: str, username: str) -> None:
+        if username in self._project_member_usernames(project_key):
+            return
+        self._add_membership(project_key, username, "MEMBER")
+
     def _build_project_members(self) -> None:
         for project in self.data["projects"]:
             template = self.project_templates[project["key"]]
@@ -491,6 +541,8 @@ class EnterpriseSeedBuilder:
                 self._add_membership(project["key"], username, role)
 
             for cross_team in template.get("cross_functional_teams", []):
+                if cross_team not in self.usernames_by_team:
+                    continue
                 for username in self._pick_team_members(
                     cross_team, self.generation["cross_functional_members_per_team"]
                 ):
@@ -499,7 +551,31 @@ class EnterpriseSeedBuilder:
             for username in self._pick_team_members(
                 primary_team, self.generation["viewers_per_project"]
             ):
-                self._add_membership(project["key"], username, "VIEWER")
+                if username not in self._project_member_usernames(project["key"]):
+                    self._add_membership(project["key"], username, "VIEWER")
+
+            if not any(
+                membership["project_key"] == project["key"]
+                and membership["project_role"] == "VIEWER"
+                for membership in self.data["project_members"]
+            ):
+                viewer_candidates = [
+                    username
+                    for username in self.user_by_username
+                    if username not in self._project_member_usernames(project["key"])
+                ]
+                if viewer_candidates:
+                    self._add_membership(
+                        project["key"], self.random.choice(viewer_candidates), "VIEWER"
+                    )
+
+        for account in self.profile.get("demo_accounts", []):
+            for membership in account.get("memberships", []):
+                self._add_membership(
+                    membership["project_key"],
+                    account["username"],
+                    membership["project_role"],
+                )
 
     def _add_membership(self, project_key: str, username: str, project_role: str) -> None:
         _validate_project_member_role(project_role)
@@ -663,6 +739,8 @@ class EnterpriseSeedBuilder:
             "epic_name": epic_name,
             "parent_ref": issue.get("parent_ref"),
         }
+        self._ensure_project_participant(project_key, task["assignee_username"])
+        self._ensure_project_participant(project_key, task["created_by_username"])
         self.tasks_by_ref[task["ref"]] = task
         self.tasks_by_key[f"{project_key}-{number}"] = task
         self.tasks_by_project[project_key].append(task)
@@ -893,8 +971,20 @@ class EnterpriseSeedBuilder:
 
     def _build_watchers(self) -> None:
         watcher_keys = set()
+        baseline_watchers_per_issue = max(
+            1,
+            min(
+                self.generation["max_watchers_per_issue"],
+                self.targets["watchers"] // max(1, len(self.data["tasks"])),
+            ),
+        )
         for task in self.data["tasks"]:
-            seed_watchers = {_slugify(name) for name in task.pop("seed_watchers", [])}
+            project_members = set(self._project_member_candidates(task["project_key"]))
+            seed_watchers = {
+                _slugify(name)
+                for name in task.pop("seed_watchers", [])
+                if _slugify(name) in project_members
+            }
             seed_watchers.add(task["created_by_username"])
             seed_watchers.add(task["assignee_username"])
             owner = next(
@@ -912,11 +1002,21 @@ class EnterpriseSeedBuilder:
                 comment["author_username"]
                 for comment in self.data["comments"]
                 if comment["task_ref"] == task["ref"]
+                and comment["author_username"] in project_members
             }
             seed_watchers.update(commenters)
 
-            limit = min(len(seed_watchers), self.generation["max_watchers_per_issue"])
-            for username in list(seed_watchers)[:limit]:
+            prioritized_usernames = [
+                task["assignee_username"],
+                task["created_by_username"],
+                *sorted(seed_watchers - {task["assignee_username"], task["created_by_username"]}),
+            ]
+            seen_usernames = []
+            for username in prioritized_usernames:
+                if username not in seen_usernames:
+                    seen_usernames.append(username)
+            limit = min(len(seen_usernames), baseline_watchers_per_issue)
+            for username in seen_usernames[:limit]:
                 key = (task["ref"], username)
                 if key in watcher_keys:
                     continue
@@ -933,9 +1033,7 @@ class EnterpriseSeedBuilder:
 
         while len(self.data["watchers"]) < self.targets["watchers"]:
             task = self.random.choice(self.data["tasks"])
-            username = self.random.choice(
-                [item[1] for item in self.project_member_index[task["project_key"]]]
-            )
+            username = self.random.choice(self._project_member_candidates(task["project_key"]))
             key = (task["ref"], username)
             if key in watcher_keys:
                 continue
@@ -1000,9 +1098,24 @@ class EnterpriseSeedBuilder:
                 }
             )
 
+    def _append_activity_log(self, record: dict[str, Any]) -> bool:
+        key = (
+            record["task_ref"],
+            record["actor_username"],
+            record["action"],
+            record["field"],
+            record["new_value"],
+            record["created_at"],
+        )
+        if key in self.activity_keys:
+            return False
+        self.activity_keys.add(key)
+        self.data["activity_logs"].append(record)
+        return True
+
     def _build_activity_logs(self) -> None:
         for task in self.data["tasks"]:
-            self.data["activity_logs"].append(
+            self._append_activity_log(
                 {
                     "task_ref": task["ref"],
                     "project_key": task["project_key"],
@@ -1015,7 +1128,7 @@ class EnterpriseSeedBuilder:
                 }
             )
             for activity in task.pop("seed_activities", []):
-                self.data["activity_logs"].append(
+                self._append_activity_log(
                     {
                         "task_ref": task["ref"],
                         "project_key": task["project_key"],
@@ -1028,7 +1141,7 @@ class EnterpriseSeedBuilder:
                     }
                 )
             for comment in [item for item in self.data["comments"] if item["task_ref"] == task["ref"]]:
-                self.data["activity_logs"].append(
+                self._append_activity_log(
                     {
                         "task_ref": task["ref"],
                         "project_key": task["project_key"],
@@ -1048,7 +1161,7 @@ class EnterpriseSeedBuilder:
             actor = self.random.choice(
                 [item[1] for item in self.project_member_index[task["project_key"]]]
             )
-            self.data["activity_logs"].append(
+            self._append_activity_log(
                 {
                     "task_ref": task["ref"],
                     "project_key": task["project_key"],
@@ -1064,6 +1177,108 @@ class EnterpriseSeedBuilder:
     def _notification_target_route(self, task: dict[str, Any]) -> str:
         return f"/issues/{task['project_key']}-{task['number']}"
 
+    def _preferred_demo_username(self) -> str | None:
+        for username in (
+            "payment_owner",
+            "engineering_member",
+            "legal_member",
+            "viewer_user",
+            "admin",
+            "amanda_putri",
+            "bima_santoso",
+            "dina_lestari",
+            "lia_wulandari",
+        ):
+            if username in self.user_by_username:
+                return username
+        active_users = sorted(self.user_by_username)
+        return active_users[0] if active_users else None
+
+    def _ensure_demo_inbox_notifications(self) -> None:
+        demo_username = self._preferred_demo_username()
+        if demo_username is None:
+            return
+
+        accessible_tasks = [
+            task
+            for task in self.data["tasks"]
+            if any(
+                membership["project_key"] == task["project_key"]
+                and membership["username"] == demo_username
+                for membership in self.data["project_members"]
+            )
+        ]
+        if len(accessible_tasks) < 4:
+            return
+
+        templates = [
+            {
+                "type": "issue_assigned",
+                "title": f"{self.user_by_username[accessible_tasks[0]['created_by_username']]['full_name']} assigned you to {accessible_tasks[0]['project_key']}-{accessible_tasks[0]['number']}",
+                "body_preview": accessible_tasks[0]["title"],
+                "task": accessible_tasks[0],
+                "is_read": False,
+            },
+            {
+                "type": "issue_mentioned",
+                "title": f"{self.user_by_username[accessible_tasks[1]['created_by_username']]['full_name']} mentioned you in {accessible_tasks[1]['project_key']}-{accessible_tasks[1]['number']}",
+                "body_preview": f"Please verify the latest change, @{demo_username}",
+                "task": accessible_tasks[1],
+                "is_read": False,
+            },
+            {
+                "type": "issue_commented",
+                "title": f"{self.user_by_username[accessible_tasks[2]['created_by_username']]['full_name']} commented on {accessible_tasks[2]['project_key']}-{accessible_tasks[2]['number']}",
+                "body_preview": accessible_tasks[2]["title"],
+                "task": accessible_tasks[2],
+                "is_read": True,
+            },
+            {
+                "type": "issue_status_changed",
+                "title": f"{accessible_tasks[3]['project_key']}-{accessible_tasks[3]['number']} moved to {accessible_tasks[3]['status']}",
+                "body_preview": accessible_tasks[3]["title"],
+                "task": accessible_tasks[3],
+                "is_read": False,
+            },
+        ]
+
+        existing_dedupe = {item["dedupe_key"] for item in self.data["notifications"]}
+        for index, item in enumerate(templates, start=1):
+            task = item["task"]
+            dedupe_key = f"seed-demo:{task['project_key']}-{task['number']}:{item['type']}:{demo_username}"
+            if dedupe_key in existing_dedupe:
+                continue
+            existing_dedupe.add(dedupe_key)
+            self.data["notifications"].append(
+                {
+                    "recipient_username": demo_username,
+                    "actor_username": task["created_by_username"],
+                    "task_ref": task["ref"],
+                    "project_key": task["project_key"],
+                    "type": item["type"],
+                    "action": notification_action_for_type(item["type"]),
+                    "title": item["title"],
+                    "body_preview": item["body_preview"],
+                    "metadata": {"route_target": self._notification_target_route(task)},
+                    "is_read": item["is_read"],
+                    "read_at": None,
+                    "dedupe_key": dedupe_key,
+                    "created_at": task["updated_at"] - dt.timedelta(hours=index),
+                }
+            )
+
+            watcher_key = (task["ref"], demo_username)
+            if watcher_key not in {(w["task_ref"], w["username"]) for w in self.data["watchers"]}:
+                self.data["watchers"].append(
+                    {
+                        "task_ref": task["ref"],
+                        "username": demo_username,
+                        "added_by_username": task["created_by_username"],
+                        **ACTIVE_WATCHER_STATE,
+                        "created_at": task["created_at"] + dt.timedelta(hours=3),
+                    }
+                )
+
     def _build_notifications(self) -> None:
         dedupe_keys = set()
         for task in self.data["tasks"]:
@@ -1074,15 +1289,16 @@ class EnterpriseSeedBuilder:
                     continue
                 dedupe_keys.add(dedupe_key)
                 self.data["notifications"].append(
-                    {
-                        "recipient_username": recipient,
-                        "actor_username": None if item.get("actor") is None else _slugify(item["actor"]),
-                        "task_ref": task["ref"],
-                        "project_key": task["project_key"],
-                        "type": item["type"],
-                        "title": item["title"],
-                        "body_preview": item.get("body_preview"),
-                        "metadata": {"route_target": self._notification_target_route(task)},
+                {
+                    "recipient_username": recipient,
+                    "actor_username": None if item.get("actor") is None else _slugify(item["actor"]),
+                    "task_ref": task["ref"],
+                    "project_key": task["project_key"],
+                    "type": item["type"],
+                    "action": notification_action_for_type(item["type"]),
+                    "title": item["title"],
+                    "body_preview": item.get("body_preview"),
+                    "metadata": {"route_target": self._notification_target_route(task)},
                         "is_read": item.get("is_read", False),
                         "read_at": None,
                         "dedupe_key": dedupe_key,
@@ -1090,6 +1306,7 @@ class EnterpriseSeedBuilder:
                     }
                 )
 
+        self._ensure_demo_inbox_notifications()
         notification_templates = self.catalogs["issue_templates"]["notification_templates"]
         while len(self.data["notifications"]) < self.targets["notifications"]:
             task = self.random.choice(self.data["tasks"])
@@ -1117,6 +1334,7 @@ class EnterpriseSeedBuilder:
                     "task_ref": task["ref"],
                     "project_key": task["project_key"],
                     "type": template["type"],
+                    "action": notification_action_for_type(template["type"]),
                     "title": title,
                     "body_preview": task["title"],
                     "metadata": {"route_target": self._notification_target_route(task)},
@@ -1284,6 +1502,13 @@ class DbSeedContext:
     def get_or_create_user(self, record: dict[str, Any]) -> User:
         user = self.users.get(record["username"])
         if user:
+            team = self.teams[(record["department_name"], record["team_name"])]
+            user.email = record["email"]
+            user.full_name = record["full_name"]
+            user.hashed_password = record["hashed_password"]
+            user.role = record["role"]
+            user.team_id = team.id
+            user.is_active = record["is_active"]
             return user
         team = self.teams[(record["department_name"], record["team_name"])]
         user = User(
@@ -1331,6 +1556,44 @@ def _seed_departments_and_teams(db: Session, ctx: DbSeedContext, data: dict[str,
 def _seed_users(ctx: DbSeedContext, users: list[dict[str, Any]]) -> None:
     for user in users:
         ctx.get_or_create_user(user)
+
+
+def _prune_legacy_bootstrap(db: Session, keep_project_keys: set[str]) -> None:
+    legacy_projects = db.query(Project).filter(
+        ~Project.key.in_(sorted(keep_project_keys)),
+        Project.name.like("%Team Project"),
+        Project.description.like("Workspace for %"),
+    ).all()
+    legacy_project_ids = [project.id for project in legacy_projects]
+
+    if legacy_project_ids:
+        task_ids = [task_id for task_id, in db.query(Task.id).filter(Task.project_id.in_(legacy_project_ids)).all()]
+        if task_ids:
+            db.query(Notification).filter(Notification.issue_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(ActivityLog).filter(ActivityLog.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(Comment).filter(Comment.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(Attachment).filter(Attachment.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(Watcher).filter(Watcher.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(TaskLabel).filter(TaskLabel.task_id.in_(task_ids)).delete(synchronize_session=False)
+            db.query(Task).filter(Task.id.in_(task_ids)).delete(synchronize_session=False)
+
+        db.query(Sprint).filter(Sprint.project_id.in_(legacy_project_ids)).delete(synchronize_session=False)
+        db.query(Epic).filter(Epic.project_id.in_(legacy_project_ids)).delete(synchronize_session=False)
+        db.query(ProjectMember).filter(ProjectMember.project_id.in_(legacy_project_ids)).delete(synchronize_session=False)
+        db.query(Notification).filter(Notification.project_id.in_(legacy_project_ids)).delete(synchronize_session=False)
+        db.query(Project).filter(Project.id.in_(legacy_project_ids)).delete(synchronize_session=False)
+
+    db.execute(
+        text(
+            """
+            DELETE FROM users
+            WHERE username = 'worker'
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_members pm WHERE pm.user_id = users.id
+              )
+            """
+        )
+    )
 
 
 def _seed_projects(ctx: DbSeedContext, data: dict[str, Any]) -> None:
@@ -1562,6 +1825,9 @@ def _seed_notifications(ctx: DbSeedContext, data: dict[str, Any]) -> None:
             actor_id=None
             if record["actor_username"] is None
             else ctx.users[record["actor_username"]].id,
+            action=record["action"],
+            entity_type="task",
+            entity_id=ctx.task_ids_by_ref[record["task_ref"]],
             issue_id=ctx.task_ids_by_ref[record["task_ref"]],
             project_id=ctx.projects[record["project_key"]].id,
             type=record["type"],
@@ -1737,6 +2003,8 @@ def cmd_seed(
     )
     db = SessionLocal()
     try:
+        if profile_name == "release_demo":
+            _prune_legacy_bootstrap(db, set(data["validation_summary"]["selected_projects"]))
         ctx = DbSeedContext(db)
         team_department_lookup = _seed_departments_and_teams(db, ctx, data)
         users = _normalise_users(data, team_department_lookup)
