@@ -16,7 +16,7 @@ const subscribeTokenRefresh = (cb: (token: string) => void) => {
 };
 
 const onRefreshed = (token: string) => {
-  refreshSubscribers.map((cb) => cb(token));
+  refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
 };
 
@@ -70,6 +70,8 @@ client.interceptors.response.use(
 
           isRefreshing = false;
           onRefreshed(access_token);
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          return client(originalRequest);
         } catch (refreshError) {
           isRefreshing = false;
           // Clear storage on failed refresh to force login

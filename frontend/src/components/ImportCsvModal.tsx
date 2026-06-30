@@ -86,6 +86,13 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
     }
   };
 
+  const handleDropZoneKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fileInputRef.current?.click();
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -198,10 +205,14 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
 
           {/* Drag & Drop File Zone */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Pilih file CSV untuk diimpor"
             onDragEnter={handleDrag}
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
+            onKeyDown={handleDropZoneKeyDown}
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${
               isDragActive

@@ -78,10 +78,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskCli
             ) : (
               <div className="divide-y divide-slate-100">
                 {myTasks.map((task) => (
-                  <div
+                  <button
                     key={task.id}
+                    type="button"
                     onClick={() => onTaskClick(task)}
-                    className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors cursor-pointer group"
+                    className="flex w-full items-center justify-between px-5 py-3 text-left hover:bg-slate-50 transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">
@@ -109,7 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskCli
                         })}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -136,10 +137,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskCli
               </div>
             ) : (
               projects.map((project) => (
-                <div
+                <button
                   key={project.id}
+                  type="button"
                   onClick={() => onSelectProject(project.id)}
-                  className="bg-white rounded-xl border border-slate-150 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer flex flex-col gap-2 group"
+                  className="bg-white rounded-xl border border-slate-150 p-4 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer flex flex-col gap-2 group text-left"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -156,7 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectProject, onTaskCli
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Status: {project.status}
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>

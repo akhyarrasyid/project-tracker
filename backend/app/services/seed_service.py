@@ -50,6 +50,7 @@ DEMO_SEED_PASSWORD_ENV = "DEMO_SEED_PASSWORD"
 DEMO_ACCOUNTS_LOCAL_FILE = REPO_ROOT / "backend" / ".runtime" / "demo-accounts.local.md"
 VALID_PROJECT_MEMBER_ROLES = {"OWNER", "MEMBER", "VIEWER"}
 ACTIVE_WATCHER_STATE = {"is_watching": True, "unwatched_at": None}
+AVAILABLE_PROFILE_NAMES = frozenset(path.stem for path in PROFILE_DIR.glob("*.json"))
 
 
 def _load_json(path: Path) -> Any:
@@ -99,6 +100,35 @@ def _seed_url_kind(database_url: str) -> str:
     return "remote"
 
 
+def _resolve_profile_path(profile_name: str) -> Path:
+    if profile_name not in AVAILABLE_PROFILE_NAMES:
+        log.error("Seed profile is not recognized.")
+        sys.exit(1)
+    return PROFILE_DIR / f"{profile_name}.json"
+
+
+def _resolve_report_path(report_path: str | None) -> Path | None:
+    if not report_path:
+        return None
+
+    candidate = Path(report_path)
+    if not candidate.is_absolute():
+        candidate = (Path.cwd().resolve() / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+
+    allowed_roots = [REPO_ROOT.resolve()]
+    for env_name in ("TMP", "TEMP"):
+        env_value = os.environ.get(env_name)
+        if env_value:
+            allowed_roots.append(Path(env_value).resolve())
+
+    if not any(candidate == root or root in candidate.parents for root in allowed_roots):
+        raise ValueError("Report path must stay within the repository or the system temp directory.")
+
+    return candidate
+
+
 def _ensure_seed_allowed(profile_name: str) -> None:
     database_url = os.environ.get("DATABASE_URL") or ""
     if not database_url:
@@ -111,16 +141,12 @@ def _ensure_seed_allowed(profile_name: str) -> None:
     if os.environ.get("ALLOW_REMOTE_SEED") != "1":
         log.error(
             "Remote database seed is blocked. Set ALLOW_REMOTE_SEED=1 and "
-            "SEED_CONFIRM_PROFILE=%s to continue explicitly.",
-            profile_name,
+            "SEED_CONFIRM_PROFILE to the selected profile to continue explicitly.",
         )
         sys.exit(1)
 
     if os.environ.get("SEED_CONFIRM_PROFILE") != profile_name:
-        log.error(
-            "Remote database seed confirmation mismatch. Expected SEED_CONFIRM_PROFILE=%s.",
-            profile_name,
-        )
+        log.error("Remote database seed confirmation mismatch.")
         sys.exit(1)
 
     if not os.environ.get(DEMO_SEED_PASSWORD_ENV):
@@ -193,7 +219,7 @@ def _parse_anchor_date(value: str | None) -> dt.date:
 
 
 def _profile_path(profile_name: str) -> Path:
-    return PROFILE_DIR / f"{profile_name}.json"
+    return _resolve_profile_path(profile_name)
 
 
 def _load_seed_data(
@@ -204,7 +230,7 @@ def _load_seed_data(
 ) -> dict[str, Any]:
     profile_path = _profile_path(profile_name)
     if not profile_path.exists():
-        log.error("Seed profile not found: %s", profile_path)
+        log.error("Seed profile file is missing for the selected profile.")
         sys.exit(1)
 
     profile = _load_json(profile_path)
@@ -222,7 +248,7 @@ def _load_seed_data(
     for scenario_name in profile["scenario_files"]:
         path = SCENARIO_DIR / f"{scenario_name}.json"
         if not path.exists():
-            log.error("Scenario file not found: %s", path)
+            log.error("Scenario file is missing from the selected profile bundle.")
             sys.exit(1)
         bundle["scenarios"].append(_load_json(path))
 
@@ -1995,9 +2021,9 @@ def _recalculate_task_counters(ctx: DbSeedContext) -> None:
 
 
 def _write_report(report_path: str | None, payload: dict[str, Any]) -> None:
-    if not report_path:
+    path = _resolve_report_path(report_path)
+    if not path:
         return
-    path = Path(report_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -2147,7 +2173,9 @@ def cmd_reset_profile(
         db.commit()
         payload = {"mode": "reset-profile", "profile": profile_name, "project_keys": project_keys}
         _write_report(report_path, payload)
-        log.info("Reset profile '%s' projects: %s", profile_name, project_keys)
+        log.info(
+            "Reset selected profile projects successfully.",
+        )
     except Exception:
         db.rollback()
         log.exception("Reset profile failed.")
@@ -2180,7 +2208,7 @@ def main() -> None:
     parser.add_argument(
         "--profile",
         default=DEFAULT_PROFILE,
-        choices=[path.stem for path in PROFILE_DIR.glob("*.json")],
+        choices=sorted(AVAILABLE_PROFILE_NAMES),
         help="Seed profile to use",
     )
     parser.add_argument(

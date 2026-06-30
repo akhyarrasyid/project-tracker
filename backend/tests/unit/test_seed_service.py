@@ -217,6 +217,19 @@ def test_cmd_dry_run_writes_summary_report():
     report_path.unlink()
 
 
+def test_resolve_report_path_keeps_relative_paths_inside_repo(monkeypatch):
+    monkeypatch.chdir(seed_service.REPO_ROOT / "backend")
+
+    resolved = seed_service._resolve_report_path(".runtime/seed-report.json")
+
+    assert resolved == (seed_service.REPO_ROOT / "backend" / ".runtime" / "seed-report.json").resolve()
+
+
+def test_resolve_report_path_rejects_parent_escape():
+    with pytest.raises(ValueError):
+        seed_service._resolve_report_path("../../outside-report.json")
+
+
 def test_release_demo_reseed_rotates_demo_passwords_only(monkeypatch, db_session):
     monkeypatch.setenv("DEMO_SEED_PASSWORD", "first-demo-password")
     seed_service.cmd_seed("release_demo")
