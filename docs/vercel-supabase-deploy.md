@@ -62,13 +62,20 @@ https://technical-test-project-tracker-api.vercel.app
 
 1. Create a second Vercel project from the same repository.
 2. Set **Root Directory** to `frontend`.
-3. Add this environment variable:
+3. Keep `frontend/vercel.json` in the deployed project so Vercel rewrites all
+   client-side routes back to `index.html`. This is required for direct opens
+   and browser refreshes on routes such as `/inbox`, `/my-issues`, and
+   `/projects/PAY/board`.
+4. Make sure the frontend Vercel project is linked to the `frontend/`
+   directory itself. A root-level Vercel configuration for another service
+   must not override this SPA rewrite.
+5. Add this environment variable:
 
 ```text
 VITE_API_URL=https://technical-test-project-tracker-api.vercel.app
 ```
 
-4. Deploy the frontend.
+6. Deploy the frontend.
 
 ## 4. Finalize Backend CORS
 

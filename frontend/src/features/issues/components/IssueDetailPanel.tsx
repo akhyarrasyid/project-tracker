@@ -18,9 +18,14 @@ import { metaApi } from "../../../api/meta";
 import { taskApi } from "../../../api/tasks";
 import { queryClient } from "../../../app/query-client";
 import type { IssueWatchersResponse } from "../../../types/notification";
+import {
+  describeActivity,
+  getConflictMessage,
+  getLatestIssue,
+  getRequestErrorMessage,
+} from "./issue-detail-helpers";
 import { useIssueQuery } from "../hooks/useIssueQuery";
 import type {
-  IssueActivity,
   IssuePatchInput,
   IssueComment,
   Task,
@@ -32,9 +37,9 @@ import type {
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 interface Props {
-  issueKey?: string;
-  mode?: "sheet" | "page";
-  onClose?: () => void;
+  readonly issueKey?: string;
+  readonly mode?: "sheet" | "page";
+  readonly onClose?: () => void;
 }
 
 const STATUS_OPTIONS: TaskStatus[] = ["Todo", "In Progress", "Review", "Done"];
@@ -42,41 +47,6 @@ const PRIORITY_OPTIONS: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
 function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
-}
-
-function describeActivity(item: IssueActivity) {
-  if (item.field && item.old_value && item.new_value) {
-    return `${item.actor.full_name} changed ${item.field} from ${item.old_value} to ${item.new_value}`;
-  }
-  if (item.field && item.new_value) {
-    return `${item.actor.full_name} updated ${item.field} to ${item.new_value}`;
-  }
-  return `${item.actor.full_name} ${item.action.toLowerCase()}`;
-}
-
-function getConflictMessage(error: unknown) {
-  const detail = (error as { response?: { data?: { detail?: { message?: string } } } })?.response?.data?.detail;
-  return detail?.message ?? null;
-}
-
-function getLatestIssue(error: unknown) {
-  const detail = (error as { response?: { data?: { detail?: { latest_issue?: Task } } } })?.response?.data?.detail;
-  return detail?.latest_issue ?? null;
-}
-
-function getRequestErrorMessage(error: unknown, fallback: string) {
-  const response = (error as { response?: { status?: number; data?: { detail?: unknown } } })?.response;
-  const detail = response?.data?.detail;
-  if (typeof detail === "string") {
-    return detail;
-  }
-  if (response?.status === 403) {
-    return "Akun ini tidak punya izin untuk menghapus issue.";
-  }
-  if (response?.status === 404) {
-    return "Issue ini sudah tidak tersedia atau sudah dihapus.";
-  }
-  return fallback;
 }
 
 export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
@@ -146,10 +116,10 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
   useEffect(() => {
     return () => {
       if (titleDebounceRef.current) {
-        window.clearTimeout(titleDebounceRef.current);
+        globalThis.clearTimeout(titleDebounceRef.current);
       }
       if (saveResetRef.current) {
-        window.clearTimeout(saveResetRef.current);
+        globalThis.clearTimeout(saveResetRef.current);
       }
     };
   }, []);
@@ -162,10 +132,10 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
 
   function scheduleSaveReset(nextState: SaveState) {
     if (saveResetRef.current) {
-      window.clearTimeout(saveResetRef.current);
+      globalThis.clearTimeout(saveResetRef.current);
     }
     if (nextState === "saved") {
-      saveResetRef.current = window.setTimeout(() => {
+      saveResetRef.current = globalThis.setTimeout(() => {
         setSaveState("idle");
         setSaveMessage(null);
       }, 1200);
@@ -216,7 +186,7 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
         const optimisticIssue = { ...currentIssue, ...patch } as Task;
         queryClient.setQueryData(["issue", issueKey], optimisticIssue);
         setDraft(optimisticIssue);
-        if (Object.prototype.hasOwnProperty.call(patch, "description")) {
+        if (Object.hasOwn(patch, "description")) {
           setDescriptionDraft(String(patch.description ?? ""));
         }
         setSaveState("saving");
@@ -347,9 +317,9 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                   setTitleTouched(true);
                   setDraft((current) => (current ? { ...current, title: nextTitle } : current));
                   if (titleDebounceRef.current) {
-                    window.clearTimeout(titleDebounceRef.current);
+                    globalThis.clearTimeout(titleDebounceRef.current);
                   }
-                  titleDebounceRef.current = window.setTimeout(() => {
+                  titleDebounceRef.current = globalThis.setTimeout(() => {
                     const trimmedTitle = nextTitle.trim();
                     if (!trimmedTitle) {
                       rollbackIssue(issueQuery.data ?? draft);
@@ -784,8 +754,8 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
                   <PropertyRow label="SLA" value={`${draft.sla_hours}h`} />
                   <PropertyRow label="Actual hours" value={`${draft.actual_hours}h`} />
                   <PropertyRow label="Progress" value={`${draft.progress_percentage}%`} />
-                  <PropertyRow label="Department" value={draft.department || "—"} />
-                  <PropertyRow label="Team" value={draft.team || "—"} />
+                  <PropertyRow label="Department" value={draft.department || "Not set"} />
+                  <PropertyRow label="Team" value={draft.team || "Not set"} />
                 </div>
               ) : null}
             </div>
@@ -847,7 +817,10 @@ export function IssueDetailPanel({ issueKey, mode = "page", onClose }: Props) {
   return <div className="mx-auto w-full max-w-6xl rounded-lg border border-neutral-200 bg-white">{panelBody}</div>;
 }
 
-function PropertyRow({ label, value }: { label: string; value: string }) {
+function PropertyRow({
+  label,
+  value,
+}: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <div className="text-neutral-500">{label}</div>

@@ -8,13 +8,13 @@ interface ValidationError {
 }
 
 interface ImportCsvModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onSuccess: () => void;
 }
 
 export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalProps) {
-  const token = localStorage.getItem("access_token");
+  const token = globalThis.localStorage.getItem("access_token");
   const [file, setFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,14 +43,14 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = globalThis.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = "tasks_import_template.csv";
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      a.remove();
+      globalThis.URL.revokeObjectURL(url);
     } catch (error) {
       setGeneralError(
         error instanceof Error ? error.message : "Gagal mengunduh template"
@@ -83,13 +83,6 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
       } else {
         setGeneralError("Format file tidak didukung. Silakan gunakan file .csv");
       }
-    }
-  };
-
-  const handleDropZoneKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      fileInputRef.current?.click();
     }
   };
 
@@ -132,7 +125,7 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
         setSuccessMessage(data.message || "Berhasil mengimpor task.");
         setFile(null);
         onSuccess();
-        setTimeout(() => {
+        globalThis.setTimeout(() => {
           onClose();
           setSuccessMessage(null);
         }, 2000);
@@ -204,15 +197,13 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
           </div>
 
           {/* Drag & Drop File Zone */}
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             aria-label="Pilih file CSV untuk diimpor"
             onDragEnter={handleDrag}
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
-            onKeyDown={handleDropZoneKeyDown}
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer ${
               isDragActive
@@ -238,7 +229,7 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
               <p className="text-xs font-bold text-slate-700">Tarik & lepas file CSV di sini, atau klik untuk memilih</p>
               <p className="text-[10px] text-slate-400 mt-1">Hanya mendukung format .csv (Max 5MB)</p>
             </div>
-          </div>
+          </button>
 
           {/* Selected File Card */}
           {file && (
@@ -306,8 +297,11 @@ export function ImportCsvModal({ isOpen, onClose, onSuccess }: ImportCsvModalPro
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {errors.map((err, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
+                  {errors.map((err) => (
+                    <tr
+                      key={`${err.row}-${err.field}-${err.message}`}
+                      className="hover:bg-slate-50/50"
+                    >
                       <td className="py-2.5 px-4 font-bold text-slate-700">Baris {err.row}</td>
                       <td className="py-2.5 px-4 font-semibold text-blue-600 bg-blue-50 text-[10px] rounded-md inline-block my-1.5 ml-4 uppercase tracking-wider">{err.field}</td>
                       <td className="py-2.5 px-4 text-[11px] font-medium text-slate-500">{err.message}</td>

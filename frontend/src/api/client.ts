@@ -7,6 +7,11 @@ const client = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+const getStorage = () => globalThis.localStorage;
+const reloadWindow = () => {
+  globalThis.location.reload();
+};
+
 // Let's create a queue for request retries during token refresh
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -16,20 +21,24 @@ const subscribeTokenRefresh = (cb: (token: string) => void) => {
 };
 
 const onRefreshed = (token: string) => {
-  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers.forEach((cb) => {
+    cb(token);
+  });
   refreshSubscribers = [];
 };
 
 // Request Interceptor: Attach access token
 client.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("access_token");
+    const token = getStorage().getItem("access_token");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    throw error;
+  }
 );
 
 // Response Interceptor: Handle token refresh on 401
@@ -38,23 +47,25 @@ client.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     if (!error.response) {
-      return Promise.reject(error);
+      throw error;
     }
 
     const status = error.response.status;
 
     // If 401 and we haven't retried yet
     if (status === 401 && !originalRequest._retry) {
-      if (originalRequest.url?.includes("/api/v1/auth/login") || originalRequest.url?.includes("/api/v1/auth/refresh")) {
-        return Promise.reject(error);
+      const isAuthRequest =
+        originalRequest.url?.includes("/api/v1/auth/login") ||
+        originalRequest.url?.includes("/api/v1/auth/refresh");
+      if (isAuthRequest) {
+        throw error;
       }
 
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem("refresh_token");
+      const refreshToken = getStorage().getItem("refresh_token");
 
       if (!refreshToken) {
-        // No refresh token, force logout or reject
-        return Promise.reject(error);
+        throw error;
       }
 
       if (!isRefreshing) {
@@ -65,8 +76,8 @@ client.interceptors.response.use(
           );
           const { access_token, refresh_token: new_refresh_token } = res.data;
           
-          localStorage.setItem("access_token", access_token);
-          localStorage.setItem("refresh_token", new_refresh_token);
+          getStorage().setItem("access_token", access_token);
+          getStorage().setItem("refresh_token", new_refresh_token);
 
           isRefreshing = false;
           onRefreshed(access_token);
@@ -75,10 +86,10 @@ client.interceptors.response.use(
         } catch (refreshError) {
           isRefreshing = false;
           // Clear storage on failed refresh to force login
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          window.location.reload();
-          return Promise.reject(refreshError);
+          getStorage().removeItem("access_token");
+          getStorage().removeItem("refresh_token");
+          reloadWindow();
+          throw refreshError;
         }
       }
 
@@ -91,7 +102,7 @@ client.interceptors.response.use(
       });
     }
 
-    return Promise.reject(error);
+    throw error;
   }
 );
 

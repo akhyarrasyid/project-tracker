@@ -12,18 +12,21 @@ export const STORAGE_KEY = "project-tracker-theme";
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const getWindow = () => (typeof globalThis.window === "undefined" ? null : globalThis.window);
+
 export function resolveInitialTheme(): AppTheme {
-  if (typeof window === "undefined") {
+  const browserWindow = getWindow();
+  if (!browserWindow) {
     return "dark";
   }
 
-  const storedTheme = window.localStorage.getItem(STORAGE_KEY);
+  const storedTheme = browserWindow.localStorage.getItem(STORAGE_KEY);
   if (storedTheme === "dark" || storedTheme === "light") {
     return storedTheme;
   }
 
-  if (typeof window.matchMedia === "function") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (typeof browserWindow.matchMedia === "function") {
+    return browserWindow.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
 
   return "dark";

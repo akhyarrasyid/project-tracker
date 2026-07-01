@@ -1,13 +1,13 @@
 import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.models.mixins import SoftDeleteColumnsMixin
 
 
-class Attachment(Base):
+class Attachment(SoftDeleteColumnsMixin, Base):
     __tablename__ = "attachments"
 
     id: Mapped[int] = mapped_column(
@@ -25,10 +25,4 @@ class Attachment(Base):
     size: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    deleted_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

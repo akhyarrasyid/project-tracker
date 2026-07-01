@@ -28,52 +28,10 @@ import { TaskCard } from "../components/TaskCard";
 import { applyOptimisticMove } from "../features/issues/board-cache";
 import { IssueDetailPanel } from "../features/issues/components/IssueDetailPanel";
 import { useBoardQuery } from "../features/issues/hooks/useBoardQuery";
+import { buildMoveInput, findTask } from "./route-helpers";
 import type { BoardResponse, IssueMoveInput, Task, TaskCreate, TaskStatus } from "../types/task";
 
 const COLUMNS: TaskStatus[] = ["Todo", "In Progress", "Review", "Done"];
-
-function findTask(board: BoardResponse, taskId: number) {
-  for (const status of COLUMNS) {
-    const task = board.columns[status].items.find((item) => item.id === taskId);
-    if (task) {
-      return task;
-    }
-  }
-  return null;
-}
-
-function buildMoveInput(board: BoardResponse, activeTaskId: number, overId: string): IssueMoveInput | null {
-  if (overId.startsWith("column:")) {
-    const status = overId.replace("column:", "") as TaskStatus;
-    const items = board.columns[status].items.filter((item) => item.id !== activeTaskId);
-    const last = items.at(-1);
-    return {
-      status,
-      after_issue_id: last?.id ?? null,
-    };
-  }
-
-  if (!overId.startsWith("task:")) {
-    return null;
-  }
-
-  const overTaskId = Number(overId.replace("task:", ""));
-  const overTask = findTask(board, overTaskId);
-  if (!overTask) {
-    return null;
-  }
-
-  const status = overTask.status;
-  const items = board.columns[status].items.filter((item) => item.id !== activeTaskId);
-  const overIndex = items.findIndex((item) => item.id === overTaskId);
-  const previous = overIndex > 0 ? items[overIndex - 1] : null;
-
-  return {
-    status,
-    before_issue_id: overTask.id,
-    after_issue_id: previous?.id ?? null,
-  };
-}
 
 function SortableTaskCard({
   task,

@@ -1,6 +1,6 @@
 import datetime
 from datetime import timedelta
-from typing import Optional, Tuple
+from typing import Annotated, Optional, Tuple
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -75,7 +75,8 @@ def decode_token(token: str) -> dict:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

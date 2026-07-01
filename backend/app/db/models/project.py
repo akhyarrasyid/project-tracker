@@ -1,13 +1,16 @@
-import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.models.mixins import (
+    CreatedUpdatedServerTimestampsMixin,
+    SoftDeleteColumnsMixin,
+)
 
 
-class Project(Base):
+class Project(CreatedUpdatedServerTimestampsMixin, SoftDeleteColumnsMixin, Base):
     __tablename__ = "projects"
 
     team = relationship("Team", lazy="joined")
@@ -27,18 +30,3 @@ class Project(Base):
         Integer, nullable=False, default=0, server_default="0"
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="ACTIVE")
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    deleted_by_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )

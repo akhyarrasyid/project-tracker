@@ -55,7 +55,7 @@ def _resolve_issue_by_id(issue_id: int, db: Session):
     return task
 
 
-@router.get("/", summary="List issues", response_model=TaskListResponse)
+@router.get("/", summary="List issues")
 def list_issues(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -68,7 +68,6 @@ def list_issues(
     "/",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new issue",
-    response_model=TaskResponse,
 )
 def create_issue(
     issue_in: TaskCreate,
@@ -79,7 +78,7 @@ def create_issue(
     return create_task(issue_in, project_id, db, current_user)
 
 
-@router.patch("/{issue_id:int}", summary="Update an issue", response_model=TaskResponse)
+@router.patch("/{issue_id:int}", summary="Update an issue")
 def patch_issue(
     issue_id: int,
     issue_in: IssueUpdateRequest,
@@ -100,7 +99,7 @@ def patch_issue(
     )
 
 
-@router.get("/{issue_id:int}/comments", summary="List issue comments", response_model=list[IssueCommentResponse])
+@router.get("/{issue_id:int}/comments", summary="List issue comments")
 def list_issue_comments(
     issue_id: int,
     db: Annotated[Session, Depends(get_db)],
@@ -121,7 +120,6 @@ def list_issue_comments(
     "/{issue_id:int}/comments",
     status_code=status.HTTP_201_CREATED,
     summary="Create issue comment",
-    response_model=IssueCommentResponse,
 )
 def create_issue_comment(
     issue_id: int,
@@ -144,7 +142,6 @@ def create_issue_comment(
 @router.get(
     "/{issue_id:int}/activities",
     summary="List issue activities",
-    response_model=list[IssueActivityResponse],
 )
 def list_issue_activities(
     issue_id: int,
@@ -165,7 +162,6 @@ def list_issue_activities(
 @router.get(
     "/{issue_id:int}/watchers",
     summary="List issue watchers",
-    response_model=IssueWatchersResponse,
 )
 def list_issue_watchers(
     issue_id: int,
@@ -186,7 +182,6 @@ def list_issue_watchers(
 @router.post(
     "/{issue_id:int}/watchers/me",
     summary="Watch an issue",
-    response_model=IssueWatchersResponse,
 )
 def watch_issue_me(
     issue_id: int,
@@ -215,7 +210,6 @@ def watch_issue_me(
 @router.delete(
     "/{issue_id:int}/watchers/me",
     summary="Unwatch an issue",
-    response_model=IssueWatchersResponse,
 )
 def unwatch_issue_me(
     issue_id: int,
@@ -243,7 +237,6 @@ def unwatch_issue_me(
 @router.post(
     "/{issue_id:int}/watchers/{user_id:int}",
     summary="Add another watcher to an issue",
-    response_model=IssueWatchersResponse,
 )
 def add_issue_watcher(
     issue_id: int,
@@ -285,7 +278,6 @@ def add_issue_watcher(
 @router.delete(
     "/{issue_id:int}/watchers/{user_id:int}",
     summary="Remove another watcher from an issue",
-    response_model=IssueWatchersResponse,
 )
 def remove_issue_watcher(
     issue_id: int,
@@ -316,7 +308,7 @@ def remove_issue_watcher(
     return IssueWatchersResponse(**payload)
 
 
-@router.get("/{issue_id:int}", summary="Get issue by id", response_model=TaskResponse)
+@router.get("/{issue_id:int}", summary="Get issue by id")
 def get_issue_by_id(
     issue_id: int,
     db: Annotated[Session, Depends(get_db)],
@@ -327,7 +319,7 @@ def get_issue_by_id(
     return task
 
 
-@router.get("/{issue_key}", summary="Get issue by key", response_model=TaskResponse)
+@router.get("/{issue_key}", summary="Get issue by key")
 def get_issue(
     issue_key: str,
     db: Annotated[Session, Depends(get_db)],
@@ -338,7 +330,7 @@ def get_issue(
     return task
 
 
-@router.put("/{issue_key}", summary="Update an issue", response_model=TaskResponse)
+@router.put("/{issue_key}", summary="Update an issue")
 def update_issue(
     issue_key: str,
     issue_in: TaskUpdate,
@@ -353,7 +345,6 @@ def update_issue(
 @router.patch(
     "/{issue_id:int}/move",
     summary="Move an issue on the board",
-    response_model=TaskResponse,
 )
 def move_issue(
     issue_id: int,

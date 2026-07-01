@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronDown, ChevronUp, ChevronsUpDown, UserCircle2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PRIORITY_META, STATUS_META, formatStatusLabel } from "../app/issue-appearance";
 import type { Task } from "../types/task";
@@ -38,7 +38,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -89,28 +88,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
     });
   }, [tasks, sortField, sortOrder]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (sortedTasks.length === 0) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev < sortedTasks.length - 1 ? prev + 1 : prev));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-    } else if (e.key === "Enter" && selectedIndex >= 0 && selectedIndex < sortedTasks.length) {
-      e.preventDefault();
-      onTaskClick(sortedTasks[selectedIndex]);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedIndex >= 0 && containerRef.current) {
-      const selectedRow = containerRef.current.querySelector(`[data-index="${selectedIndex}"]`);
-      selectedRow?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }, [selectedIndex]);
-
   if (tasks.length === 0) {
     return (
       <div className="app-panel rounded-[24px] p-16 text-center text-[color:var(--app-text-soft)]">
@@ -125,9 +102,6 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div
-        ref={containerRef}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
         className="app-panel app-scrollbar max-h-[680px] overflow-auto rounded-[24px] focus:outline-none"
       >
         <table className="w-full border-collapse text-left">
@@ -195,11 +169,7 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                 <tr
                   key={task.id}
                   data-index={index}
-                  onClick={() => {
-                    setSelectedIndex(index);
-                    onTaskClick(task);
-                  }}
-                  className={`cursor-pointer transition ${
+                  className={`transition ${
                     isSelected
                       ? "bg-blue-500/[0.08] shadow-[inset_4px_0_0_0_var(--app-accent)]"
                       : "hover:bg-[color:var(--app-panel-muted)]/80"
@@ -208,8 +178,7 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                   <td className="px-6 py-4 align-top">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() => {
                         setSelectedIndex(index);
                         onTaskClick(task);
                       }}
@@ -219,9 +188,18 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
                     </button>
                   </td>
                   <td className="px-6 py-4 align-top">
-                    <div className={`max-w-[440px] leading-6 ${isSelected ? "font-semibold" : "font-medium"}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedIndex(index);
+                        onTaskClick(task);
+                      }}
+                      className={`max-w-[440px] text-left leading-6 ${
+                        isSelected ? "font-semibold" : "font-medium"
+                      }`}
+                    >
                       {task.title}
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 align-top text-[color:var(--app-text-soft)]">
                     <div className="flex max-w-[170px] items-center gap-2">
@@ -261,7 +239,7 @@ export function TaskTaskList({ tasks, onTaskClick }: Props) {
       </div>
       <div className="flex items-center justify-between px-1 text-[11px] text-[color:var(--app-text-faint)]">
         <span>Total: {sortedTasks.length} issues</span>
-        <span>Use arrow keys to navigate rows and Enter to open the selected issue.</span>
+        <span>Use the issue key or title button to open details.</span>
       </div>
     </div>
   );
@@ -275,21 +253,24 @@ function HeaderCell({
   onSort,
   centered = false,
 }: {
-  label: string;
-  field: SortField;
-  sortField: SortField | null;
-  sortOrder: SortOrder;
-  onSort: (field: SortField) => void;
-  centered?: boolean;
+  readonly label: string;
+  readonly field: SortField;
+  readonly sortField: SortField | null;
+  readonly sortOrder: SortOrder;
+  readonly onSort: (field: SortField) => void;
+  readonly centered?: boolean;
 }) {
   return (
     <th
-      onClick={() => onSort(field)}
       className={`px-6 py-3.5 text-[11px] font-semibold tracking-[0.16em] text-[color:var(--app-text-soft)] ${
         centered ? "text-center" : ""
       }`}
     >
-      <span className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={`inline-flex items-center gap-1.5 ${centered ? "mx-auto" : ""}`}
+      >
         {label}
         {sortField !== field ? (
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-45" />
@@ -298,7 +279,7 @@ function HeaderCell({
         ) : (
           <ChevronDown className="h-3.5 w-3.5 text-blue-600" />
         )}
-      </span>
+      </button>
     </th>
   );
 }

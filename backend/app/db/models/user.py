@@ -1,13 +1,14 @@
-import datetime
-from typing import Optional
-
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.models.mixins import (
+    CreatedUpdatedServerTimestampsMixin,
+    SoftDeleteColumnsMixin,
+)
 
 
-class User(Base):
+class User(CreatedUpdatedServerTimestampsMixin, SoftDeleteColumnsMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(
@@ -26,15 +27,3 @@ class User(Base):
         Integer, ForeignKey("teams.id", ondelete="RESTRICT"), nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
-    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )

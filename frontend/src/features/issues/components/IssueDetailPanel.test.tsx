@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps, ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { issueApi } from "../../../api/issues";
 import { metaApi } from "../../../api/meta";
@@ -124,10 +124,10 @@ const baseWatchers: IssueWatchersResponse = {
   ],
 };
 
-function renderPanel() {
+function renderPanel(props?: Partial<ComponentProps<typeof IssueDetailPanel>>) {
   return render(
     <AppProviders>
-      <IssueDetailPanel issueKey="PAY-12" mode="page" />
+      <IssueDetailPanel issueKey="PAY-12" mode="page" {...props} />
     </AppProviders>,
   );
 }
@@ -196,6 +196,25 @@ describe("IssueDetailPanel", () => {
     expect(screen.queryByText("Risk level")).not.toBeInTheDocument();
   });
 
+  it("shows the loading state before the issue payload is available", async () => {
+    queryClient.clear();
+    const deferred: { resolve?: (issue: Task) => void } = {};
+    vi.mocked(issueApi.getByKey).mockImplementationOnce(
+      () =>
+        new Promise<Task>((resolve) => {
+          deferred.resolve = resolve;
+        }),
+    );
+
+    renderPanel();
+
+    expect(await screen.findByText("Memuat issue...")).toBeInTheDocument();
+    if (deferred.resolve) {
+      deferred.resolve(baseIssue);
+    }
+    expect(await screen.findByLabelText("Issue title")).toHaveValue("Handle duplicate callback");
+  });
+
   it("autosaves priority changes with expected version", async () => {
     vi.mocked(issueApi.patch).mockResolvedValueOnce({
       ...baseIssue,
@@ -246,6 +265,42 @@ describe("IssueDetailPanel", () => {
     expect(await screen.findByLabelText("Issue title")).toHaveValue("Updated elsewhere");
   });
 
+  it("rolls back blank title edits on blur without calling the API", async () => {
+    renderPanel();
+
+    const titleInput = await screen.findByLabelText("Issue title");
+    fireEvent.change(titleInput, { target: { value: "   " } });
+    fireEvent.blur(titleInput);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Issue title")).toHaveValue("Handle duplicate callback");
+    });
+    expect(vi.mocked(issueApi.patch)).not.toHaveBeenCalled();
+  });
+
+  it("autosaves a trimmed title after editing", async () => {
+    vi.mocked(issueApi.patch).mockResolvedValueOnce({
+      ...baseIssue,
+      title: "Refine duplicate callback flow",
+      version: 2,
+    });
+
+    renderPanel();
+    const titleInput = await screen.findByLabelText("Issue title");
+    fireEvent.change(titleInput, { target: { value: "  Refine duplicate callback flow  " } });
+    fireEvent.blur(titleInput);
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.patch)).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          title: "Refine duplicate callback flow",
+          expected_version: 1,
+        }),
+      );
+    });
+  });
+
   it("creates comments and refreshes activity queries", async () => {
     renderPanel();
 
@@ -263,6 +318,43 @@ describe("IssueDetailPanel", () => {
     expect(await screen.findByText("Please verify callback retries.")).toBeInTheDocument();
   });
 
+  it("saves the edited description and can reset the draft", async () => {
+    vi.mocked(issueApi.patch).mockResolvedValueOnce({
+      ...baseIssue,
+      description: "Updated duplicate payment callback context",
+      version: 2,
+    });
+
+    renderPanel();
+
+    const description = await screen.findByLabelText("Issue description");
+    fireEvent.change(description, {
+      target: { value: "Updated duplicate payment callback context" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save description" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.patch)).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          description: "Updated duplicate payment callback context",
+          expected_version: 1,
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Issue description")).toHaveValue(
+        "Updated duplicate payment callback context",
+      );
+    });
+
+    fireEvent.change(description, { target: { value: "Temporary text" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByLabelText("Issue description")).toHaveValue(
+      "Updated duplicate payment callback context",
+    );
+  });
+
   it("renders watchers and toggles watch state", async () => {
     renderPanel();
 
@@ -275,6 +367,98 @@ describe("IssueDetailPanel", () => {
     await waitFor(() => {
       expect(vi.mocked(issueApi.unwatchMe)).toHaveBeenCalledWith(12);
     });
+  });
+
+  it("rolls back watcher state when toggling watch fails", async () => {
+    vi.mocked(issueApi.unwatchMe).mockRejectedValueOnce(new Error("watch failed"));
+    renderPanel();
+
+    const button = await screen.findByRole("button", { name: /Watching/i });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.unwatchMe)).toHaveBeenCalledWith(12);
+    });
+    expect(await screen.findByRole("button", { name: /Watching/i })).toBeInTheDocument();
+  });
+
+  it("updates blocked state and blocked reason through autosave", async () => {
+    vi.mocked(issueApi.patch)
+      .mockResolvedValueOnce({
+        ...baseIssue,
+        is_blocked: true,
+        blocked_reason: "",
+        version: 2,
+      })
+      .mockResolvedValueOnce({
+        ...baseIssue,
+        is_blocked: true,
+        blocked_reason: "Waiting on payment gateway approval",
+        version: 3,
+      });
+
+    renderPanel();
+
+    fireEvent.click(await screen.findByLabelText("Issue blocked"));
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.patch)).toHaveBeenNthCalledWith(
+        1,
+        12,
+        expect.objectContaining({
+          is_blocked: true,
+          blocked_reason: "",
+          expected_version: 1,
+        }),
+      );
+    });
+
+    const blockedReason = screen.getByLabelText("Blocked reason");
+    fireEvent.change(blockedReason, {
+      target: { value: "Waiting on payment gateway approval" },
+    });
+    fireEvent.blur(blockedReason);
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.patch)).toHaveBeenNthCalledWith(
+        2,
+        12,
+        expect.objectContaining({
+          blocked_reason: "Waiting on payment gateway approval",
+          expected_version: 2,
+        }),
+      );
+    });
+  });
+
+  it("updates parent issue and expands more properties", async () => {
+    vi.mocked(issueApi.patch).mockResolvedValueOnce({
+      ...baseIssue,
+      parent_id: 22,
+      version: 2,
+    });
+
+    renderPanel();
+    expect(await screen.findByText("Retry reconciliation job")).toBeInTheDocument();
+
+    fireEvent.change(await screen.findByLabelText("Parent issue"), {
+      target: { value: "22" },
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(issueApi.patch)).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          parent_id: 22,
+          expected_version: 1,
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "More properties" }));
+    expect(screen.getByText("Risk level")).toBeInTheDocument();
+    expect(screen.getByText("Customer impact")).toBeInTheDocument();
+    expect(screen.getByText("Department")).toBeInTheDocument();
+    expect(screen.getByText("Team")).toBeInTheDocument();
   });
 
   it("deletes only through overflow menu with custom dialog", async () => {
@@ -294,6 +478,17 @@ describe("IssueDetailPanel", () => {
     confirmSpy.mockRestore();
   });
 
+  it("closes the custom delete dialog without deleting when cancel is clicked", async () => {
+    renderPanel();
+
+    fireEvent.click(await screen.findByLabelText("Issue actions"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete issue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Delete issue?")).not.toBeInTheDocument();
+    expect(vi.mocked(issueApi.deleteById)).not.toHaveBeenCalled();
+  });
+
   it("shows delete failure feedback when the API rejects deletion", async () => {
     vi.mocked(issueApi.deleteById).mockRejectedValueOnce({
       response: {
@@ -309,4 +504,19 @@ describe("IssueDetailPanel", () => {
 
     expect(await screen.findByText("Viewer cannot delete issues")).toBeInTheDocument();
   });
+
+  it("renders as a closable sheet and closes from the backdrop", async () => {
+    const onClose = vi.fn();
+    renderPanel({ mode: "sheet", onClose });
+
+    fireEvent.click(await screen.findByLabelText("Close issue"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByLabelText("Close issue backdrop"));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });

@@ -184,8 +184,8 @@ def list_tasks(
 
 @router.get("/import-template", summary="Download CSV template for task import")
 def import_template(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> Response:
     # Try to find a real project that matches user's department (if not admin)
     project = None
@@ -250,9 +250,9 @@ def import_template(
 
 @router.post("/import-csv", summary="Import tasks from CSV file")
 async def import_csv(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    file: Annotated[UploadFile, File(...)],
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     try:
         content = await file.read()

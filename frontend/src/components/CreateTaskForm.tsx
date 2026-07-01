@@ -240,6 +240,7 @@ export const CreateTaskForm = forwardRef<CreateTaskFormHandle, Props>(function C
               setProjId("");
               setAssigneeId("");
             }}
+            aria-label="Tutup form buat task"
             className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

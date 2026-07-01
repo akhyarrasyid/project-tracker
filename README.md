@@ -113,11 +113,15 @@ project-tracker/
    ```bash
    uv sync
    ```
-3. Run the database migrations (Alembic or seeding script handles tables auto-creation in development):
+3. Run the database migrations:
    ```bash
-   uv run python -m app.services.seed_service --seed
+   uv run alembic upgrade head
    ```
-4. Start the FastAPI development server:
+4. Seed a local demo dataset when needed:
+   ```bash
+   uv run python -m app.services.seed_service --seed --profile release_demo
+   ```
+5. Start the FastAPI development server:
    ```bash
    uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
    ```
@@ -131,7 +135,10 @@ project-tracker/
    ```bash
    npm install
    ```
-3. Start the Vite development server:
+3. Keep `frontend/vercel.json` in place for production Vercel deploys so client-side
+   routes such as `/inbox`, `/my-issues`, and `/projects/PAY/board` rewrite back to
+   `index.html`.
+4. Start the Vite development server:
    ```bash
    npm run dev
    ```
@@ -173,7 +180,8 @@ Run all backend tests with coverage reporting:
 docker compose up -d db
 backend\.venv\Scripts\python.exe -m pytest backend\tests -q
 ```
-*Backend test coverage is maintained at **99%** overall statement coverage.*
+Backend tests cover the API, services, seeding, routing, and migration-sensitive
+flows. Run the suite against the isolated PostgreSQL test database described below.
 
 For local-vs-Supabase test environment separation, see [docs/backend-test-environments.md](docs/backend-test-environments.md).
 
@@ -183,7 +191,8 @@ Run all frontend tests with coverage reporting:
 cd frontend
 npx vitest run --coverage
 ```
-*Frontend test coverage is maintained at **100%** line coverage across components, hooks, and API services.*
+Frontend tests cover routing, workspace shell behavior, board/list interactions,
+notifications, optimistic mutations, and key UI regression paths.
 
 ---
 

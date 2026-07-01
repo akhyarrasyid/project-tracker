@@ -1,21 +1,13 @@
-import datetime
 from typing import Optional
 
-from sqlalchemy import (
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.models.mixins import CreatedUpdatedServerTimestampsMixin
 
 
-class Team(Base):
+class Team(CreatedUpdatedServerTimestampsMixin, Base):
     __tablename__ = "teams"
 
     department = relationship("Department", lazy="joined")
@@ -28,15 +20,6 @@ class Team(Base):
         Integer, ForeignKey("departments.id", ondelete="RESTRICT"), nullable=False
     )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-    )
 
     __table_args__ = (
         UniqueConstraint("name", "department_id", name="uq_team_name_department"),

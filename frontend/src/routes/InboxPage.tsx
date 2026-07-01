@@ -9,6 +9,7 @@ import {
 } from "../features/notifications/hooks/useNotificationMutations";
 import { useNotificationsQuery } from "../features/notifications/hooks/useNotificationsQuery";
 import { useUnreadNotificationCountQuery } from "../features/notifications/hooks/useUnreadNotificationCountQuery";
+import { filterNotifications, getRelativeTimeLabel, groupNotifications } from "./route-helpers";
 import type { NotificationFilter, NotificationItem } from "../types/notification";
 
 const FILTERS: Array<{ label: string; value: NotificationFilter }> = [
@@ -21,76 +22,6 @@ const FILTERS: Array<{ label: string; value: NotificationFilter }> = [
 
 function cn(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
-}
-
-function getRelativeTimeLabel(value: string) {
-  const target = new Date(value).getTime();
-  const diffMinutes = Math.round((target - Date.now()) / 60_000);
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
-  if (Math.abs(diffMinutes) < 60) {
-    return formatter.format(diffMinutes, "minute");
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (Math.abs(diffHours) < 24) {
-    return formatter.format(diffHours, "hour");
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  return formatter.format(diffDays, "day");
-}
-
-function getGroupLabel(value: string) {
-  const target = new Date(value);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfTarget = new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    target.getDate(),
-  );
-  const diffDays = Math.round(
-    (startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000,
-  );
-
-  if (diffDays <= 0) {
-    return "Today";
-  }
-  if (diffDays === 1) {
-    return "Yesterday";
-  }
-  return "Earlier";
-}
-
-function filterNotifications(items: NotificationItem[], search: string) {
-  const needle = search.trim().toLowerCase();
-  if (!needle) {
-    return items;
-  }
-
-  return items.filter((item) => {
-    const haystacks = [
-      item.title,
-      item.body_preview ?? "",
-      item.issue?.key ?? "",
-      item.issue?.title ?? "",
-      item.project?.name ?? "",
-      item.actor?.full_name ?? "",
-    ];
-    return haystacks.some((value) => value.toLowerCase().includes(needle));
-  });
-}
-
-function groupNotifications(items: NotificationItem[]) {
-  const groups = new Map<string, NotificationItem[]>();
-  for (const item of items) {
-    const key = getGroupLabel(item.created_at);
-    const current = groups.get(key) ?? [];
-    current.push(item);
-    groups.set(key, current);
-  }
-  return Array.from(groups.entries());
 }
 
 export function InboxPage() {
