@@ -4,8 +4,10 @@ import json
 import logging
 import os
 import random
+import re
 import sys
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -48,9 +50,16 @@ DEFAULT_ANCHOR_DATE = dt.date(2026, 6, 30)
 DEFAULT_PASSWORD = "password123"
 DEMO_SEED_PASSWORD_ENV = "DEMO_SEED_PASSWORD"
 DEMO_ACCOUNTS_LOCAL_FILE = REPO_ROOT / "backend" / ".runtime" / "demo-accounts.local.md"
+REPORT_OUTPUT_DIR = REPO_ROOT / "backend" / ".runtime"
+REPORT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.json$")
 VALID_PROJECT_MEMBER_ROLES = {"OWNER", "MEMBER", "VIEWER"}
 ACTIVE_WATCHER_STATE = {"is_watching": True, "unwatched_at": None}
 AVAILABLE_PROFILE_NAMES = frozenset(path.stem for path in PROFILE_DIR.glob("*.json"))
+
+
+@dataclass(frozen=True)
+class ReportDestination:
+    path: Path
 
 
 def _load_json(path: Path) -> Any:
@@ -107,26 +116,49 @@ def _resolve_profile_path(profile_name: str) -> Path:
     return PROFILE_DIR / f"{profile_name}.json"
 
 
-def _resolve_report_path(report_path: str | None) -> Path | None:
-    if not report_path:
-        return None
+def _sanitize_report_name(report_name: str) -> str:
+    candidate = Path(report_name)
+    parent = candidate.parent.as_posix().strip(".")
+    if candidate.is_absolute():
+        raise ValueError("Report path must be a local runtime report filename.")
+    if parent not in {"", "runtime", ".runtime", "backend/.runtime"}:
+        raise ValueError("Report path must stay within backend/.runtime.")
 
-    candidate = Path(report_path)
-    if not candidate.is_absolute():
-        candidate = (Path.cwd().resolve() / candidate).resolve()
-    else:
-        candidate = candidate.resolve()
+    sanitized_name = candidate.name
+    if not REPORT_NAME_PATTERN.fullmatch(sanitized_name):
+        raise ValueError("Report filename must be a simple .json file name.")
 
-    allowed_roots = [REPO_ROOT.resolve()]
-    for env_name in ("TMP", "TEMP"):
-        env_value = os.environ.get(env_name)
-        if env_value:
-            allowed_roots.append(Path(env_value).resolve())
+    return sanitized_name
 
-    if not any(candidate == root or root in candidate.parents for root in allowed_roots):
-        raise ValueError("Report path must stay within the repository or the system temp directory.")
 
+def _validated_report_path(file_name: str) -> Path:
+    runtime_root = REPORT_OUTPUT_DIR.resolve()
+    candidate = (runtime_root / file_name).resolve()
+    try:
+        candidate.relative_to(runtime_root)
+    except ValueError as exc:
+        raise ValueError("Report path must stay within backend/.runtime.") from exc
     return candidate
+
+
+def _build_report_destination(report_path: ReportDestination | None) -> Path | None:
+    if report_path is None:
+        return None
+    runtime_root = REPORT_OUTPUT_DIR.resolve()
+    candidate = report_path.path.resolve()
+    try:
+        candidate.relative_to(runtime_root)
+    except ValueError as exc:
+        raise ValueError("Report path must stay within backend/.runtime.") from exc
+    return candidate
+
+
+def _parse_report_path(value: str) -> ReportDestination:
+    try:
+        sanitized_name = _sanitize_report_name(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return ReportDestination(_validated_report_path(sanitized_name))
 
 
 def _ensure_seed_allowed(profile_name: str) -> None:
@@ -204,14 +236,31 @@ def _write_demo_accounts_local_file(profile: dict[str, Any]) -> None:
     DEMO_ACCOUNTS_LOCAL_FILE.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _log_demo_accounts_ready(profile: dict[str, Any]) -> None:
-    demo_accounts = profile.get("demo_accounts", [])
-    if not demo_accounts:
+def _log_demo_accounts_ready(account_count: int) -> None:
+    if account_count <= 0:
         return
-    log.info("Demo accounts ready:")
-    for account in demo_accounts:
-        log.info("- %s", account["username"])
-    log.info("Credential file: %s", DEMO_ACCOUNTS_LOCAL_FILE.as_posix())
+    log.info("Demo accounts ready for %s accounts.", account_count)
+
+
+def _summary_metrics(summary: dict[str, Any]) -> tuple[int, int, int, int]:
+    return (
+        int(summary.get("projects", 0)),
+        int(summary.get("issues", 0)),
+        int(summary.get("notifications", 0)),
+        int(summary.get("watchers", 0)),
+    )
+
+
+def _log_seed_summary(action: str, summary: dict[str, Any]) -> None:
+    projects, issues, notifications, watchers = _summary_metrics(summary)
+    log.info(
+        "%s completed. projects=%s issues=%s notifications=%s watchers=%s",
+        action,
+        projects,
+        issues,
+        notifications,
+        watchers,
+    )
 
 
 def _parse_anchor_date(value: str | None) -> dt.date:
@@ -2020,12 +2069,49 @@ def _recalculate_task_counters(ctx: DbSeedContext) -> None:
         task.watchers_count = counts["watchers"].get(task_id, 0)
 
 
-def _write_report(report_path: str | None, payload: dict[str, Any]) -> None:
-    path = _resolve_report_path(report_path)
-    if not path:
+REPORT_SUMMARY_KEYS = (
+    "departments",
+    "teams",
+    "users",
+    "projects",
+    "issues",
+    "comments",
+    "attachments",
+    "watchers",
+    "notifications",
+    "activity_logs",
+    "blocked_issues",
+    "sub_issue_links",
+    "dependency_links",
+)
+
+
+def _safe_report_payload(mode: str, summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "mode": mode,
+        "summary": {
+            key: int(summary.get(key, 0))
+            for key in REPORT_SUMMARY_KEYS
+        },
+    }
+
+
+def _safe_reset_report_payload(project_count: int) -> dict[str, Any]:
+    return {
+        "mode": "reset-profile",
+        "summary": {
+            "projects": int(project_count),
+        },
+    }
+
+
+def _write_runtime_report(report_path: ReportDestination | None, payload: dict[str, Any]) -> None:
+    destination = _build_report_destination(report_path)
+    if not destination:
         return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
 
 
 def _build_profile_dataset(
@@ -2051,15 +2137,15 @@ def cmd_validate(
     *,
     anchor_date: dt.date | None = None,
     random_seed: int | None = None,
-    report_path: str | None = None,
+    report_path: ReportDestination | None = None,
 ) -> None:
     data = _build_profile_dataset(
         profile_name,
         anchor_date=anchor_date,
         random_seed=random_seed,
     )
-    _write_report(report_path, {"mode": "validate", "summary": data["summary"]})
-    log.info("Validated seed profile '%s': %s", profile_name, data["summary"])
+    _write_runtime_report(report_path, _safe_report_payload("validate", data["summary"]))
+    _log_seed_summary("Validation", data["summary"])
     sys.exit(0)
 
 
@@ -2068,16 +2154,15 @@ def cmd_dry_run(
     *,
     anchor_date: dt.date | None = None,
     random_seed: int | None = None,
-    report_path: str | None = None,
+    report_path: ReportDestination | None = None,
 ) -> None:
     data = _build_profile_dataset(
         profile_name,
         anchor_date=anchor_date,
         random_seed=random_seed,
     )
-    payload = {"mode": "dry-run", "summary": data["summary"]}
-    _write_report(report_path, payload)
-    log.info("Dry run for profile '%s': %s", profile_name, data["summary"])
+    _write_runtime_report(report_path, _safe_report_payload("dry-run", data["summary"]))
+    _log_seed_summary("Dry run", data["summary"])
     sys.exit(0)
 
 
@@ -2091,7 +2176,7 @@ def cmd_seed(
     *,
     anchor_date: dt.date | None = None,
     random_seed: int | None = None,
-    report_path: str | None = None,
+    report_path: ReportDestination | None = None,
 ) -> None:
     _ensure_seed_allowed(profile_name)
     profile = _load_json(_profile_path(profile_name))
@@ -2124,10 +2209,10 @@ def cmd_seed(
         _seed_activity_logs(ctx, data)
         _recalculate_task_counters(ctx)
         db.commit()
-        _write_report(report_path, {"mode": "seed", "summary": data["summary"]})
+        _write_runtime_report(report_path, _safe_report_payload("seed", data["summary"]))
         _write_demo_accounts_local_file(profile)
-        _log_demo_accounts_ready(profile)
-        log.info("Seeded profile '%s': %s", profile_name, data["summary"])
+        _log_demo_accounts_ready(len(profile.get("demo_accounts", [])))
+        _log_seed_summary("Seed", data["summary"])
     except Exception:
         db.rollback()
         log.exception("Seed failed, transaction rolled back.")
@@ -2139,7 +2224,7 @@ def cmd_seed(
 def cmd_reset_profile(
     profile_name: str,
     *,
-    report_path: str | None = None,
+    report_path: ReportDestination | None = None,
 ) -> None:
     _ensure_seed_allowed(profile_name)
     bundle = _load_seed_data(profile_name)
@@ -2171,8 +2256,7 @@ def cmd_reset_profile(
             db.query(Project).filter(Project.id.in_(project_ids)).delete(synchronize_session=False)
 
         db.commit()
-        payload = {"mode": "reset-profile", "profile": profile_name, "project_keys": project_keys}
-        _write_report(report_path, payload)
+        _write_runtime_report(report_path, _safe_reset_report_payload(len(project_keys)))
         log.info(
             "Reset selected profile projects successfully.",
         )
@@ -2223,6 +2307,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--report",
+        type=_parse_report_path,
         help="Optional JSON output path for summary reporting",
     )
     args = parser.parse_args()

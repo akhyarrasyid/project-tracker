@@ -70,7 +70,9 @@ describe("Auth context", () => {
       </AuthProvider>,
     );
 
-    expect(await screen.findByTestId("user")).toHaveTextContent("Demo Admin");
+    await waitFor(() => {
+      expect(screen.getByTestId("user")).toHaveTextContent("Demo Admin");
+    });
     expect(authApi.getMe).toHaveBeenCalledTimes(1);
   });
 

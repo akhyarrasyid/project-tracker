@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -204,30 +203,74 @@ def test_main_validate_dispatches_with_profile_argument():
 
 
 def test_cmd_dry_run_writes_summary_report():
-    report_path = Path("backend/.runtime/seed-service-test-report.json")
+    report_path = seed_service.REPORT_OUTPUT_DIR / "seed-service-test-report.json"
+    destination = seed_service.ReportDestination(report_path)
     if report_path.exists():
         report_path.unlink()
 
     with pytest.raises(SystemExit) as excinfo:
-        seed_service.cmd_dry_run("smoke", report_path=str(report_path))
+        seed_service.cmd_dry_run("smoke", report_path=destination)
 
     assert excinfo.value.code == 0
     assert report_path.exists()
-    assert "smoke" in report_path.read_text(encoding="utf-8")
+    report_text = report_path.read_text(encoding="utf-8")
+    assert '"mode": "dry-run"' in report_text
+    assert '"issues"' in report_text
+    assert "smoke" not in report_text
+    report_path.unlink()
+
+def test_build_report_destination_keeps_relative_paths_inside_repo():
+    destination = seed_service._build_report_destination(
+        seed_service.ReportDestination(
+            seed_service._validated_report_path("seed-report.json")
+        )
+    )
+
+    assert destination is not None
+    assert destination == (
+        seed_service.REPORT_OUTPUT_DIR / "seed-report.json"
+    ).resolve()
+
+
+def test_parse_report_path_returns_sanitized_filename():
+    destination = seed_service._parse_report_path(".runtime/seed-report.json")
+
+    assert destination.path == (seed_service.REPORT_OUTPUT_DIR / "seed-report.json").resolve()
+
+
+def test_write_runtime_report_keeps_file_inside_runtime_directory():
+    report_path = seed_service.REPORT_OUTPUT_DIR / "validated-report.json"
+    destination = seed_service.ReportDestination(report_path)
+    if report_path.exists():
+        report_path.unlink()
+
+    seed_service._write_runtime_report(destination, {"mode": "test"})
+
+    assert report_path.exists()
+    assert '"mode": "test"' in report_path.read_text(encoding="utf-8")
     report_path.unlink()
 
 
-def test_resolve_report_path_keeps_relative_paths_inside_repo(monkeypatch):
-    monkeypatch.chdir(seed_service.REPO_ROOT / "backend")
-
-    resolved = seed_service._resolve_report_path(".runtime/seed-report.json")
-
-    assert resolved == (seed_service.REPO_ROOT / "backend" / ".runtime" / "seed-report.json").resolve()
-
-
-def test_resolve_report_path_rejects_parent_escape():
+def test_build_report_destination_rejects_parent_escape():
     with pytest.raises(ValueError):
-        seed_service._resolve_report_path("../../outside-report.json")
+        seed_service._build_report_destination(
+            seed_service.ReportDestination(seed_service.REPO_ROOT / "outside-report.json")
+        )
+
+
+def test_parse_report_path_rejects_parent_escape():
+    with pytest.raises(argparse.ArgumentTypeError):
+        seed_service._parse_report_path("../../outside-report.json")
+
+
+def test_parse_report_path_rejects_absolute_paths():
+    with pytest.raises(argparse.ArgumentTypeError):
+        seed_service._parse_report_path("C:/tmp/report.json")
+
+
+def test_parse_report_path_rejects_nested_directories():
+    with pytest.raises(argparse.ArgumentTypeError):
+        seed_service._parse_report_path("reports/nested/report.json")
 
 
 def test_release_demo_reseed_rotates_demo_passwords_only(monkeypatch, db_session):
@@ -276,7 +319,7 @@ def test_release_demo_seed_writes_local_credential_file(monkeypatch):
     if credential_path.exists():
         credential_path.unlink()
 
-    monkeypatch.chdir(Path("backend"))
+    monkeypatch.chdir(seed_service.REPO_ROOT / "backend")
     monkeypatch.setenv("DEMO_SEED_PASSWORD", "local-demo-password")
     monkeypatch.setenv("VITE_API_URL", "https://technical-test-project-tracker-api.vercel.app")
     monkeypatch.setenv("DEMO_FRONTEND_URL", "https://technical-test-project-tracker.vercel.app")
@@ -294,3 +337,13 @@ def test_release_demo_seed_writes_local_credential_file(monkeypatch):
     assert "https://technical-test-project-tracker-api.vercel.app/docs" in contents
 
     credential_path.unlink()
+
+
+def test_log_demo_accounts_ready_logs_count_only(caplog):
+    caplog.set_level("INFO")
+    seed_service._log_demo_accounts_ready(2)
+
+    assert "Demo accounts ready for 2 accounts." in caplog.text
+    assert "viewer_user" not in caplog.text
+    assert "admin" not in caplog.text
+    assert "Credential file" not in caplog.text
